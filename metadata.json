@@ -1,0 +1,7 @@
+{
+  "name": "BizCard AI",
+  "description": "Smart business card scanner and manager powered by Gemini AI. Scan, extract, and organize contacts effortlessly.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
