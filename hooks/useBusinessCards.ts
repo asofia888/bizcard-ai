@@ -29,26 +29,38 @@ export const useBusinessCards = () => {
   });
 
   const [lastBackupTime, setLastBackupTime] = useState<number | null>(() => {
-    const time = localStorage.getItem('bizcard_last_backup_time');
-    return time ? parseInt(time, 10) : null;
+    try {
+      const time = localStorage.getItem('bizcard_last_backup_time');
+      return time ? parseInt(time, 10) : null;
+    } catch {
+      return null;
+    }
   });
 
   // Persistence and Auto-backup
   useEffect(() => {
-    localStorage.setItem('bizcard_data', JSON.stringify(cards));
-    
+    try {
+      localStorage.setItem('bizcard_data', JSON.stringify(cards));
+    } catch (e) {
+      console.error('Failed to save cards:', e);
+    }
+
     const checkAutoBackup = () => {
       const now = Date.now();
       const ONE_DAY = 24 * 60 * 60 * 1000;
-      
+
       if (!lastBackupTime || (now - lastBackupTime > ONE_DAY)) {
-        console.log("Performing auto-backup...");
-        localStorage.setItem('bizcard_backup', JSON.stringify(cards));
-        localStorage.setItem('bizcard_last_backup_time', now.toString());
-        setLastBackupTime(now);
+        try {
+          console.log("Performing auto-backup...");
+          localStorage.setItem('bizcard_backup', JSON.stringify(cards));
+          localStorage.setItem('bizcard_last_backup_time', now.toString());
+          setLastBackupTime(now);
+        } catch (e) {
+          console.error('Failed to auto-backup:', e);
+        }
       }
     };
-    
+
     const timer = setTimeout(checkAutoBackup, 2000);
     return () => clearTimeout(timer);
   }, [cards, lastBackupTime]);
@@ -70,15 +82,27 @@ export const useBusinessCards = () => {
   };
 
   const createBackup = () => {
-    const now = Date.now();
-    localStorage.setItem('bizcard_backup', JSON.stringify(cards));
-    localStorage.setItem('bizcard_last_backup_time', now.toString());
-    setLastBackupTime(now);
-    alert('バックアップを作成しました。');
+    try {
+      const now = Date.now();
+      localStorage.setItem('bizcard_backup', JSON.stringify(cards));
+      localStorage.setItem('bizcard_last_backup_time', now.toString());
+      setLastBackupTime(now);
+      alert('バックアップを作成しました。');
+    } catch (e) {
+      console.error('Failed to create backup:', e);
+      alert('バックアップの作成に失敗しました。ストレージの空き容量を確認してください。');
+    }
   };
 
   const restoreBackup = () => {
-    const backupData = localStorage.getItem('bizcard_backup');
+    let backupData: string | null;
+    try {
+      backupData = localStorage.getItem('bizcard_backup');
+    } catch (e) {
+      console.error('Failed to read backup:', e);
+      alert('バックアップデータの読み込みに失敗しました。');
+      return;
+    }
     if (!backupData) {
       alert('バックアップデータが見つかりません。');
       return;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { BusinessCard, ExtractionStatus } from '../../types';
 import { ArrowLeftIcon, CheckIcon } from '../Icons';
@@ -11,14 +11,18 @@ interface CardEditViewProps {
   onCancel: () => void;
 }
 
-export const CardEditView: React.FC<CardEditViewProps> = ({ 
-  initialData, 
-  status, 
-  tempImage, 
-  onSave, 
-  onCancel 
+export const CardEditView: React.FC<CardEditViewProps> = ({
+  initialData,
+  status,
+  tempImage,
+  onSave,
+  onCancel
 }) => {
   const [formData, setFormData] = useState<Partial<BusinessCard>>(initialData);
+
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, ...initialData }));
+  }, [initialData]);
 
   const handleSave = () => {
     if (!formData.name && !formData.company) {
@@ -81,6 +85,13 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
                <div className="bg-blue-50 text-blue-800 p-4 rounded-xl flex items-center gap-3 animate-pulse">
                  <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                  <span className="font-medium text-sm">AIが名刺を解析中...</span>
+               </div>
+             )}
+
+             {status === ExtractionStatus.ERROR && (
+               <div className="bg-red-50 text-red-800 p-4 rounded-xl flex items-center gap-3">
+                 <span className="text-lg">&#x26A0;</span>
+                 <span className="font-medium text-sm">AI解析に失敗しました。手動で入力してください。</span>
                </div>
              )}
              

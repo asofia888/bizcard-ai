@@ -22,19 +22,23 @@ function createRes() {
 }
 
 let handler: (req: any, res: any) => Promise<void>;
-let mockGenerateContent: ReturnType<typeof vi.fn>;
+let mockExtractCard: ReturnType<typeof vi.fn>;
 
 beforeEach(async () => {
   vi.resetModules();
 
-  mockGenerateContent = vi.fn();
+  mockExtractCard = vi.fn();
 
-  // Mock @google/genai with function constructor (not arrow)
-  vi.doMock('@google/genai', () => ({
-    GoogleGenAI: function () {
-      return { models: { generateContent: mockGenerateContent } };
+  // Mock the shared extractCard module
+  vi.doMock('../../services/extractCard', () => ({
+    extractCard: mockExtractCard,
+    ExtractError: class ExtractError extends Error {
+      statusCode: number;
+      constructor(message: string, statusCode: number) {
+        super(message);
+        this.statusCode = statusCode;
+      }
     },
-    Type: { OBJECT: 'OBJECT', STRING: 'STRING', INTEGER: 'INTEGER' },
   }));
 
   // Mock express to capture the route handler
@@ -90,9 +94,7 @@ describe('POST /api/extract', () => {
 
   it('returns 200 with parsed JSON on success', async () => {
     const mockData = { name: '田中太郎', company: 'テスト株式会社' };
-    mockGenerateContent.mockResolvedValue({
-      text: JSON.stringify(mockData),
-    });
+    mockExtractCard.mockResolvedValue(mockData);
 
     const req = createReq({ base64Image: 'validbase64data' });
     const res = createRes();
@@ -101,8 +103,9 @@ describe('POST /api/extract', () => {
     expect(res.body).toEqual(mockData);
   });
 
-  it('returns 500 when Gemini returns empty response', async () => {
-    mockGenerateContent.mockResolvedValue({ text: '' });
+  it('returns 500 when extractCard throws ExtractError with empty response', async () => {
+    const { ExtractError } = await import('../../services/extractCard');
+    mockExtractCard.mockRejectedValue(new ExtractError('Empty response from Gemini API.', 500));
 
     const req = createReq({ base64Image: 'validbase64data' });
     const res = createRes();
@@ -111,18 +114,19 @@ describe('POST /api/extract', () => {
     expect(res.body.error).toContain('Empty response');
   });
 
-  it('returns 500 when Gemini returns null text', async () => {
-    mockGenerateContent.mockResolvedValue({ text: null });
+  it('returns 502 when extractCard throws ExtractError with invalid JSON', async () => {
+    const { ExtractError } = await import('../../services/extractCard');
+    mockExtractCard.mockRejectedValue(new ExtractError('AIの応答を解析できませんでした。', 502));
 
     const req = createReq({ base64Image: 'validbase64data' });
     const res = createRes();
     await handler(req, res);
-    expect(res.statusCode).toBe(500);
-    expect(res.body.error).toContain('Empty response');
+    expect(res.statusCode).toBe(502);
+    expect(res.body.error).toContain('AIの応答を解析できませんでした');
   });
 
-  it('returns 500 with error message when Gemini throws', async () => {
-    mockGenerateContent.mockRejectedValue(new Error('API quota exceeded'));
+  it('returns 500 with error message when extractCard throws generic error', async () => {
+    mockExtractCard.mockRejectedValue(new Error('API quota exceeded'));
 
     const req = createReq({ base64Image: 'validbase64data' });
     const res = createRes();
