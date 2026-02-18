@@ -5,6 +5,7 @@ import { extractCardData } from './services/geminiService';
 import { rotateImage } from './utils/imageUtils';
 import { useBusinessCards } from './hooks/useBusinessCards';
 import { BusinessCard, ViewState, ExtractionStatus } from './types';
+import { DialogProvider } from './components/Dialog';
 
 // Views
 import { CardListView } from './components/views/CardListView';
@@ -97,8 +98,8 @@ export default function App() {
     setStatus(ExtractionStatus.IDLE);
   }
 
-  const handleDelete = (id: string) => {
-      const deleted = deleteCard(id);
+  const handleDelete = async (id: string) => {
+      const deleted = await deleteCard(id);
       if (deleted) {
           setView('LIST');
           setSelectedCard(null);
@@ -121,6 +122,7 @@ export default function App() {
   // --- Render ---
 
   return (
+    <DialogProvider>
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans max-w-md mx-auto shadow-2xl overflow-hidden relative">
       
       {view === 'LIST' && (
@@ -170,5 +172,6 @@ export default function App() {
       )}
 
     </div>
+    </DialogProvider>
   );
 }

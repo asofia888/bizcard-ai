@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useContext } from 'react';
 import { BusinessCard } from '../types';
 import { saveImage, getAllImages, deleteImage } from '../utils/imageDB';
+import { DialogContext } from '../components/Dialog';
 
 const INITIAL_CARDS: BusinessCard[] = [
   {
@@ -36,6 +37,12 @@ function saveMetadata(cards: BusinessCard[], key = 'bizcard_data'): void {
 }
 
 export const useBusinessCards = () => {
+  // DialogContext がない環境（テスト等）でも動作するようにフォールバックを用意
+  const dialogCtx = useContext(DialogContext);
+  const showToast = dialogCtx?.showToast ?? ((msg: string) => alert(msg));
+  const showConfirm =
+    dialogCtx?.showConfirm ?? ((msg: string) => Promise.resolve(window.confirm(msg)));
+
   // 初期値はメタデータのみ（imageUri: null）。画像は後で IndexedDB から注入する。
   const [cards, setCards] = useState<BusinessCard[]>(loadMetadata);
 
@@ -91,7 +98,7 @@ export const useBusinessCards = () => {
     if (!initializedRef.current) return;
 
     try {
-      saveMetadata(cards); // 画像なしのメタデータのみ保存
+      saveMetadata(cards);
     } catch (e) {
       console.error('Failed to save cards:', e);
     }
@@ -132,8 +139,9 @@ export const useBusinessCards = () => {
     setCards(prev => prev.map(c => c.id === updatedCard.id ? updatedCard : c));
   };
 
-  const deleteCard = (id: string) => {
-    if (confirm('この名刺を削除してもよろしいですか？')) {
+  const deleteCard = async (id: string): Promise<boolean> => {
+    const confirmed = await showConfirm('この名刺を削除してもよろしいですか？', '削除する');
+    if (confirmed) {
       deleteImage(id).catch(e =>
         console.error('Failed to delete image from IndexedDB:', e)
       );
@@ -149,10 +157,10 @@ export const useBusinessCards = () => {
       saveMetadata(cards, 'bizcard_backup');
       localStorage.setItem('bizcard_last_backup_time', now.toString());
       setLastBackupTime(now);
-      alert('バックアップを作成しました。');
+      showToast('バックアップを作成しました。', 'success');
     } catch (e) {
       console.error('Failed to create backup:', e);
-      alert('バックアップの作成に失敗しました。ストレージの空き容量を確認してください。');
+      showToast('バックアップの作成に失敗しました。ストレージの空き容量を確認してください。', 'error');
     }
   };
 
@@ -161,16 +169,19 @@ export const useBusinessCards = () => {
     try {
       backupRaw = localStorage.getItem('bizcard_backup');
     } catch {
-      alert('バックアップデータの読み込みに失敗しました。');
+      showToast('バックアップデータの読み込みに失敗しました。', 'error');
       return;
     }
     if (!backupRaw) {
-      alert('バックアップデータが見つかりません。');
+      showToast('バックアップデータが見つかりません。', 'info');
       return;
     }
-    if (!confirm('現在のデータを上書きしてバックアップから復元しますか？この操作は取り消せません。')) {
-      return;
-    }
+    const confirmed = await showConfirm(
+      '現在のデータを上書きしてバックアップから復元しますか？この操作は取り消せません。',
+      '復元する'
+    );
+    if (!confirmed) return;
+
     try {
       const parsed: BusinessCard[] = JSON.parse(backupRaw);
 
@@ -192,15 +203,15 @@ export const useBusinessCards = () => {
       }));
 
       setCards(cardsWithImages);
-      alert('復元が完了しました。');
+      showToast('復元が完了しました。', 'success');
     } catch {
-      alert('データの復元に失敗しました。');
+      showToast('データの復元に失敗しました。', 'error');
     }
   };
 
   const exportCSV = () => {
     if (cards.length === 0) {
-      alert('エクスポートするデータがありません。');
+      showToast('エクスポートするデータがありません。', 'info');
       return;
     }
 

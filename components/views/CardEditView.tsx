@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { BusinessCard, ExtractionStatus } from '../../types';
 import { ArrowLeftIcon, CheckIcon } from '../Icons';
+import { useDialog } from '../Dialog';
 
 interface CardEditViewProps {
   initialData: Partial<BusinessCard>;
@@ -18,6 +19,7 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
   onSave,
   onCancel
 }) => {
+  const { showToast } = useDialog();
   const [formData, setFormData] = useState<Partial<BusinessCard>>(initialData);
 
   useEffect(() => {
@@ -26,7 +28,7 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
 
   const handleSave = () => {
     if (!formData.name && !formData.company) {
-      alert("氏名または会社名は必須です。");
+      showToast('氏名または会社名は必須です。', 'error');
       return;
     }
 
