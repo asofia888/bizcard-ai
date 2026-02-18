@@ -22,15 +22,37 @@ async function extractCard(apiKey: string, base64Image: string): Promise<Record<
           },
         },
         {
-          text: `この名刺画像を解析し、以下の情報を抽出してください。
+          text: `Analyze this business card image and extract the following information.
+この名刺画像を解析し、情報を抽出してください。
+วิเคราะห์นามบัตรนี้และดึงข้อมูลต่อไปนี้
 
-【解析要件】
-1. 多言語対応（日本語、英語、中国語、タイ語など）。翻訳せず原文のまま抽出してください。
-2. 住所や電話番号、ドメイン情報から「国（Country）」を推測してください（例: 日本, USA, China）。
-3. 画像が回転している、または傾いている場合、文字を水平に正立させるために必要な「回転角度（時計回りの度数）」を推定してください（例: 0, 90, 180, 270, または 5, -5 などの微調整）。
-4. 名刺に手書きのメモや、項目に当てはまらない特記事項がある場合は「note」に抽出してください。
+[Rules / 解析要件 / กฎ]
+1. The card may be in Japanese, English, Thai, Chinese, or any other language. Extract text AS-IS — do NOT translate.
+   名刺は日本語・英語・タイ語・中国語など多言語に対応。翻訳せず原文のまま抽出してください。
 
-項目が見つからない場合は空文字を返してください。`,
+2. THAI cards (ภาษาไทย):
+   - Names appear in Thai script and/or romanized English. Extract both if present (Thai script first).
+   - Phone numbers: local format 0X-XXXX-XXXX or international +66-X-XXXX-XXXX.
+   - Country = "Thailand" or "ประเทศไทย". Domain .th → Thailand.
+
+3. ENGLISH cards:
+   - Names follow "First Last", "Last, First", or include honorifics (Mr./Ms./Dr.).
+   - Extract the full name as printed without abbreviation.
+
+4. JAPANESE cards (日本語):
+   - Names may be in kanji/hiragana/katakana with furigana above; extract the main name.
+   - Phone: 0X-XXXX-XXXX or +81-X-XXXX-XXXX. Domain .co.jp / .jp → Japan.
+
+5. Detect COUNTRY from: phone prefix (+66=Thailand, +81=Japan, +1=USA/Canada, +86=China, +44=UK),
+   domain (.th, .co.th=Thailand; .co.jp, .jp=Japan; .cn=China; .au=Australia),
+   or the language/script of the card text.
+
+6. If the image is rotated or tilted, estimate the CLOCKWISE rotation angle needed to make text upright
+   (e.g. 0, 90, 180, 270, or fine adjustments like 5, -5).
+
+7. Extract handwritten notes or uncategorized details into "note".
+
+8. Return empty string "" for any field not found on the card.`,
         },
       ],
     },
