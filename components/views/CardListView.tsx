@@ -35,6 +35,7 @@ export const CardListView: React.FC<CardListViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [groupBy, setGroupBy] = useState<'NONE' | 'COMPANY' | 'TITLE' | 'COUNTRY'>('NONE');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'NEWEST' | 'OLDEST' | 'NAME_ASC' | 'COMPANY_ASC'>('NEWEST');
 
   const getCleanQuery = (q: string) =>
     q.replace(/^(?:Mr\.?|Ms\.?|Mrs\.?|Dr\.?)\s+/i, '')
@@ -55,6 +56,18 @@ export const CardListView: React.FC<CardListViewProps> = ({
     return matchesSearch && matchesTag;
   });
 
+  const sortedFilteredCards = useMemo(() => {
+    return [...filteredCards].sort((a, b) => {
+      switch (sortBy) {
+        case 'NEWEST':      return b.createdAt - a.createdAt;
+        case 'OLDEST':      return a.createdAt - b.createdAt;
+        case 'NAME_ASC':    return (a.name || a.company).localeCompare(b.name || b.company, 'ja');
+        case 'COMPANY_ASC': return (a.company || '').localeCompare(b.company || '', 'ja');
+        default:            return 0;
+      }
+    });
+  }, [filteredCards, sortBy]);
+
   const allTags = useMemo(() => {
     const tagCount: Record<string, number> = {};
     cards.forEach(c => (c.tags || []).forEach(t => {
@@ -66,7 +79,7 @@ export const CardListView: React.FC<CardListViewProps> = ({
   const groupedCards = useMemo(() => {
     if (groupBy === 'NONE') return null;
     const groups: Record<string, BusinessCard[]> = {};
-    filteredCards.forEach(card => {
+    sortedFilteredCards.forEach(card => {
       let key = '未分類';
       if (groupBy === 'COMPANY') key = card.company;
       else if (groupBy === 'TITLE') key = card.title;
@@ -76,7 +89,7 @@ export const CardListView: React.FC<CardListViewProps> = ({
       groups[key].push(card);
     });
     return groups;
-  }, [filteredCards, groupBy]);
+  }, [sortedFilteredCards, groupBy]);
 
   const sortedGroupKeys = useMemo(() => {
     if (!groupedCards) return [];
@@ -224,38 +237,50 @@ export const CardListView: React.FC<CardListViewProps> = ({
 
       <div className="flex-1 overflow-y-auto p-4 pb-28 no-scrollbar">
         <div className="space-y-3">
-          {/* グループ切替タブ */}
-          <div className="flex bg-slate-100 p-1 rounded-xl">
-            {(['NONE', 'COUNTRY', 'COMPANY', 'TITLE'] as const).map(mode => (
-              <button
-                key={mode}
-                onClick={() => setGroupBy(mode)}
-                className={`flex-1 py-1.5 text-[10px] sm:text-xs font-bold rounded-lg transition-all truncate px-1 ${
-                  groupBy === mode
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                {mode === 'NONE' ? '全て' : mode === 'COUNTRY' ? '国別' : mode === 'COMPANY' ? '会社別' : '役職別'}
-              </button>
-            ))}
+          {/* グループ切替タブ + ソート */}
+          <div className="flex items-center gap-2">
+            <div className="flex flex-1 bg-slate-100 p-1 rounded-xl">
+              {(['NONE', 'COUNTRY', 'COMPANY', 'TITLE'] as const).map(mode => (
+                <button
+                  key={mode}
+                  onClick={() => setGroupBy(mode)}
+                  className={`flex-1 py-1.5 text-[10px] sm:text-xs font-bold rounded-lg transition-all truncate px-1 ${
+                    groupBy === mode
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {mode === 'NONE' ? '全て' : mode === 'COUNTRY' ? '国別' : mode === 'COMPANY' ? '会社別' : '役職別'}
+                </button>
+              ))}
+            </div>
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as typeof sortBy)}
+              className="flex-shrink-0 text-[10px] font-bold text-slate-600 bg-slate-100 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+            >
+              <option value="NEWEST">新しい順</option>
+              <option value="OLDEST">古い順</option>
+              <option value="NAME_ASC">氏名順</option>
+              <option value="COMPANY_ASC">会社名順</option>
+            </select>
           </div>
 
-          {filteredCards.length === 0 ? (
+          {sortedFilteredCards.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-center mt-4">
               <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-3xl flex items-center justify-center mb-4 shadow-inner">
                 <CameraIcon className="w-9 h-9 text-blue-400" />
               </div>
               <p className="font-semibold text-slate-600 mb-1">
-                {searchQuery ? '名刺が見つかりません' : 'まだ名刺がありません'}
+                {searchQuery || selectedTag ? '名刺が見つかりません' : 'まだ名刺がありません'}
               </p>
               <p className="text-sm text-slate-400">
-                {searchQuery ? '別のキーワードで検索してください' : '＋ボタンで最初の名刺を追加'}
+                {searchQuery || selectedTag ? '検索条件を変えてみてください' : '＋ボタンで最初の名刺を追加'}
               </p>
             </div>
           ) : groupBy === 'NONE' ? (
             <div className="space-y-2.5">
-              {filteredCards.map(card => (
+              {sortedFilteredCards.map(card => (
                 <ListItem key={card.id} card={card} />
               ))}
             </div>
