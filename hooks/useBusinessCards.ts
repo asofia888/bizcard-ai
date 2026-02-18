@@ -15,6 +15,7 @@ const INITIAL_CARDS: BusinessCard[] = [
     website: 'www.tech-innovation.co.jp',
     address: '東京都渋谷区道玄坂1-2-3',
     note: '2024年の展示会で名刺交換。DX推進担当。',
+    tags: ['展示会', '重要'],
     imageUri: null,
     createdAt: Date.now()
   }
@@ -251,7 +252,7 @@ export const useBusinessCards = () => {
     }
 
     const escapeCSV = (val: string) => `"${(val || '').replace(/"/g, '""')}"`;
-    const headers = ['ID', '氏名', '会社名', '役職', '国', 'メール', '電話番号', 'Webサイト', '住所', 'メモ', '作成日'];
+    const headers = ['ID', '氏名', '会社名', '役職', '国', 'メール', '電話番号', 'Webサイト', '住所', 'メモ', 'タグ', '作成日'];
     const rows = cards.map(c => [
       escapeCSV(c.id),
       escapeCSV(c.name),
@@ -263,6 +264,7 @@ export const useBusinessCards = () => {
       escapeCSV(c.website),
       escapeCSV(c.address),
       escapeCSV(c.note),
+      escapeCSV((c.tags || []).join('; ')),
       escapeCSV(new Date(c.createdAt).toLocaleString()),
     ]);
 

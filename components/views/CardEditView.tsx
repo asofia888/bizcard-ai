@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { BusinessCard, ExtractionStatus } from '../../types';
 import { ArrowLeftIcon, CheckIcon } from '../Icons';
@@ -21,6 +21,8 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
 }) => {
   const { showToast } = useDialog();
   const [formData, setFormData] = useState<Partial<BusinessCard>>(initialData);
+  const [tagInput, setTagInput] = useState('');
+  const tagInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setFormData(prev => ({ ...prev, ...initialData }));
@@ -43,6 +45,7 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
       website: formData.website || '',
       address: formData.address || '',
       note: formData.note || '',
+      tags: formData.tags || [],
       imageUri: formData.imageUri || null,
       createdAt: formData.createdAt || Date.now(),
     };
@@ -52,6 +55,31 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
 
   const handleChange = (key: keyof BusinessCard, value: string) => {
     setFormData(prev => ({ ...prev, [key]: value }));
+  };
+
+  const addTag = (raw: string) => {
+    const tag = raw.trim();
+    if (!tag) return;
+    const current = formData.tags || [];
+    if (current.includes(tag)) return;
+    setFormData(prev => ({ ...prev, tags: [...(prev.tags || []), tag] }));
+  };
+
+  const removeTag = (tag: string) => {
+    setFormData(prev => ({ ...prev, tags: (prev.tags || []).filter(t => t !== tag) }));
+  };
+
+  const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addTag(tagInput);
+      setTagInput('');
+    } else if (e.key === 'Backspace' && tagInput === '') {
+      const current = formData.tags || [];
+      if (current.length > 0) {
+        setFormData(prev => ({ ...prev, tags: current.slice(0, -1) }));
+      }
+    }
   };
 
   const fields: { key: keyof BusinessCard; label: string; type?: string }[] = [
@@ -127,6 +155,43 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
                 />
               </div>
             ))}
+          </div>
+
+          {/* タグ入力 */}
+          <div
+            className="bg-white rounded-2xl shadow-sm border border-slate-100 px-4 py-3 cursor-text"
+            onClick={() => tagInputRef.current?.focus()}
+          >
+            <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">
+              タグ
+            </label>
+            <div className="flex flex-wrap gap-1.5 min-h-[28px]">
+              {(formData.tags || []).map(tag => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 bg-blue-50 text-blue-600 text-xs font-semibold px-2.5 py-1 rounded-lg"
+                >
+                  {tag}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
+                    className="text-blue-400 hover:text-blue-700 leading-none"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              <input
+                ref={tagInputRef}
+                type="text"
+                value={tagInput}
+                onChange={e => setTagInput(e.target.value)}
+                onKeyDown={handleTagKeyDown}
+                onBlur={() => { if (tagInput.trim()) { addTag(tagInput); setTagInput(''); } }}
+                placeholder={(formData.tags || []).length === 0 ? 'タグを追加 (Enterで確定)' : ''}
+                className="flex-1 min-w-[120px] bg-transparent focus:outline-none text-slate-900 text-sm placeholder-slate-300"
+              />
+            </div>
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 px-4 py-3">

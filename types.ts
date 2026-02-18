@@ -9,6 +9,7 @@ export interface BusinessCard {
   website: string;
   address: string;
   note: string; // Added note field
+  tags: string[];
   imageUri: string | null; // Base64 or URL
   createdAt: number;
 }

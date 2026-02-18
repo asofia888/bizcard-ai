@@ -132,6 +132,15 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
                     <span className="text-xs font-semibold bg-blue-50 text-blue-500 px-2.5 py-1 rounded-lg">{card.country}</span>
                   )}
                 </div>
+                {(card.tags || []).length > 0 && (
+                  <div className="flex justify-center flex-wrap gap-1.5 mt-3">
+                    {card.tags.map(tag => (
+                      <span key={tag} className="text-xs font-semibold bg-indigo-50 text-indigo-500 px-2.5 py-1 rounded-lg">
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

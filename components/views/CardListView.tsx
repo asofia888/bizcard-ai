@@ -34,6 +34,7 @@ export const CardListView: React.FC<CardListViewProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [groupBy, setGroupBy] = useState<'NONE' | 'COMPANY' | 'TITLE' | 'COUNTRY'>('NONE');
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
   const getCleanQuery = (q: string) =>
     q.replace(/^(?:Mr\.?|Ms\.?|Mrs\.?|Dr\.?)\s+/i, '')
@@ -42,12 +43,25 @@ export const CardListView: React.FC<CardListViewProps> = ({
 
   const cleanQuery = getCleanQuery(searchQuery);
 
-  const filteredCards = cards.filter(c =>
-    c.name.toLowerCase().includes(cleanQuery.toLowerCase()) ||
-    c.company.toLowerCase().includes(cleanQuery.toLowerCase()) ||
-    c.title.toLowerCase().includes(cleanQuery.toLowerCase()) ||
-    (c.country || '').toLowerCase().includes(cleanQuery.toLowerCase())
-  );
+  const filteredCards = cards.filter(c => {
+    const q = cleanQuery.toLowerCase();
+    const matchesSearch = !q ||
+      c.name.toLowerCase().includes(q) ||
+      c.company.toLowerCase().includes(q) ||
+      c.title.toLowerCase().includes(q) ||
+      (c.country || '').toLowerCase().includes(q) ||
+      (c.tags || []).some(t => t.toLowerCase().includes(q));
+    const matchesTag = !selectedTag || (c.tags || []).includes(selectedTag);
+    return matchesSearch && matchesTag;
+  });
+
+  const allTags = useMemo(() => {
+    const tagCount: Record<string, number> = {};
+    cards.forEach(c => (c.tags || []).forEach(t => {
+      tagCount[t] = (tagCount[t] || 0) + 1;
+    }));
+    return Object.entries(tagCount).sort((a, b) => b[1] - a[1]).map(([t]) => t);
+  }, [cards]);
 
   const groupedCards = useMemo(() => {
     if (groupBy === 'NONE') return null;
@@ -182,12 +196,30 @@ export const CardListView: React.FC<CardListViewProps> = ({
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
           <input
             type="text"
-            placeholder="氏名、会社名、国で検索..."
+            placeholder="氏名、会社名、タグで検索..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-slate-100 pl-9 pr-4 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm placeholder-slate-400"
           />
         </div>
+
+        {allTags.length > 0 && (
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar pt-1 pb-0.5">
+            {allTags.map(tag => (
+              <button
+                key={tag}
+                onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                className={`flex-shrink-0 text-xs font-semibold px-2.5 py-1 rounded-lg transition-all ${
+                  selectedTag === tag
+                    ? 'bg-indigo-500 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                #{tag}
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 pb-28 no-scrollbar">
