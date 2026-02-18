@@ -6,6 +6,9 @@ interface CameraCaptureProps {
   onClose: () => void;
 }
 
+const MAX_DIMENSION = 1500;
+const JPEG_QUALITY = 0.75;
+
 export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -62,10 +65,11 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
     const canvas = canvasRef.current;
     const context = canvas.getContext('2d');
     if (!context) return;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    const scale = Math.min(1, MAX_DIMENSION / Math.max(video.videoWidth, video.videoHeight));
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const imageData = canvas.toDataURL('image/jpeg', 0.8);
+    const imageData = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
     onCapture(imageData);
   };
 
@@ -74,8 +78,22 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
       if (file) {
           const reader = new FileReader();
           reader.onloadend = () => {
-              const base64String = reader.result as string;
-              onCapture(base64String);
+              const original = reader.result as string;
+              const img = new Image();
+              img.onload = () => {
+                  const scale = Math.min(1, MAX_DIMENSION / Math.max(img.width, img.height));
+                  const canvas = document.createElement('canvas');
+                  canvas.width = Math.round(img.width * scale);
+                  canvas.height = Math.round(img.height * scale);
+                  const ctx = canvas.getContext('2d');
+                  if (ctx) {
+                      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                      onCapture(canvas.toDataURL('image/jpeg', JPEG_QUALITY));
+                  } else {
+                      onCapture(original);
+                  }
+              };
+              img.src = original;
           };
           reader.readAsDataURL(file);
       }
