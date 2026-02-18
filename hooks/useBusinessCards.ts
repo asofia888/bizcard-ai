@@ -151,61 +151,96 @@ export const useBusinessCards = () => {
     return false;
   };
 
-  const createBackup = () => {
+  // 画像を含むバックアップJSONファイルをダウンロード
+  const createBackup = async () => {
     try {
+      const images = await getAllImages();
+      const backupData = {
+        version: 2,
+        exportedAt: Date.now(),
+        cards: cards.map(c => ({
+          ...c,
+          imageUri: images[c.id] ?? null,
+        })),
+      };
+      const blob = new Blob([JSON.stringify(backupData)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `bizcard_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
       const now = Date.now();
-      saveMetadata(cards, 'bizcard_backup');
       localStorage.setItem('bizcard_last_backup_time', now.toString());
       setLastBackupTime(now);
-      showToast('バックアップを作成しました。', 'success');
+      showToast('バックアップファイルをダウンロードしました。', 'success');
     } catch (e) {
       console.error('Failed to create backup:', e);
-      showToast('バックアップの作成に失敗しました。ストレージの空き容量を確認してください。', 'error');
+      showToast('バックアップの作成に失敗しました。', 'error');
     }
   };
 
+  // バックアップJSONファイルを選択して復元
   const restoreBackup = async () => {
-    let backupRaw: string | null;
-    try {
-      backupRaw = localStorage.getItem('bizcard_backup');
-    } catch {
-      showToast('バックアップデータの読み込みに失敗しました。', 'error');
-      return;
-    }
-    if (!backupRaw) {
-      showToast('バックアップデータが見つかりません。', 'info');
-      return;
-    }
     const confirmed = await showConfirm(
       '現在のデータを上書きしてバックアップから復元しますか？この操作は取り消せません。',
       '復元する'
     );
     if (!confirmed) return;
 
-    try {
-      const parsed: BusinessCard[] = JSON.parse(backupRaw);
+    // ファイル選択ダイアログを開く
+    const file = await new Promise<File | null>((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,application/json';
+      input.onchange = () => resolve(input.files?.[0] ?? null);
+      document.body.appendChild(input);
+      input.click();
+      document.body.removeChild(input);
+    });
 
-      // 旧フォーマットのバックアップ対応: base64 画像があれば IndexedDB へ移行
-      const toMigrate = parsed.filter(
-        c => c.imageUri && typeof c.imageUri === 'string' && c.imageUri.startsWith('data:')
-      );
-      if (toMigrate.length > 0) {
-        await Promise.all(
-          toMigrate.map(c => saveImage(c.id, c.imageUri as string))
-        );
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+
+      // v1形式（配列）またはv2形式（{ version, cards }）に対応
+      let cardsData: BusinessCard[];
+      if (Array.isArray(parsed)) {
+        cardsData = parsed; // 旧形式
+      } else if (parsed.version >= 2 && Array.isArray(parsed.cards)) {
+        cardsData = parsed.cards; // 新形式（画像含む）
+      } else {
+        throw new Error('Invalid backup format');
       }
 
-      // IndexedDB から最新の画像をマージ
+      // 画像を IndexedDB に保存
+      const imageCards = cardsData.filter(
+        c => c.imageUri && typeof c.imageUri === 'string' && c.imageUri.startsWith('data:')
+      );
+      if (imageCards.length > 0) {
+        await Promise.all(imageCards.map(c => saveImage(c.id, c.imageUri as string)));
+      }
+
+      // メタデータを localStorage に保存
+      saveMetadata(cardsData);
+
+      // IndexedDB から全画像をマージ
       const images = await getAllImages();
-      const cardsWithImages = parsed.map(c => ({
+      const cardsWithImages = cardsData.map(c => ({
         ...c,
         imageUri: images[c.id] ?? null,
       }));
 
       setCards(cardsWithImages);
-      showToast('復元が完了しました。', 'success');
-    } catch {
-      showToast('データの復元に失敗しました。', 'error');
+      showToast(`${cardsData.length}件の名刺を復元しました。`, 'success');
+    } catch (e) {
+      console.error('Restore failed:', e);
+      showToast('復元に失敗しました。バックアップファイルを確認してください。', 'error');
     }
   };
 
