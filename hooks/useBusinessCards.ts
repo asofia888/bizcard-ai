@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BusinessCard } from '../types';
+import { saveImage, getAllImages, deleteImage } from '../utils/imageDB';
 
 const INITIAL_CARDS: BusinessCard[] = [
   {
@@ -18,15 +19,25 @@ const INITIAL_CARDS: BusinessCard[] = [
   }
 ];
 
+/** localStorage からカードメタデータを読み込む（imageUri は null で返る） */
+function loadMetadata(): BusinessCard[] {
+  try {
+    const saved = localStorage.getItem('bizcard_data');
+    return saved ? JSON.parse(saved) : INITIAL_CARDS;
+  } catch {
+    return INITIAL_CARDS;
+  }
+}
+
+/** localStorage にメタデータのみ保存（imageUri は除外） */
+function saveMetadata(cards: BusinessCard[], key = 'bizcard_data'): void {
+  const metadata = cards.map(c => ({ ...c, imageUri: null }));
+  localStorage.setItem(key, JSON.stringify(metadata));
+}
+
 export const useBusinessCards = () => {
-  const [cards, setCards] = useState<BusinessCard[]>(() => {
-    try {
-      const saved = localStorage.getItem('bizcard_data');
-      return saved ? JSON.parse(saved) : INITIAL_CARDS;
-    } catch {
-      return INITIAL_CARDS;
-    }
-  });
+  // 初期値はメタデータのみ（imageUri: null）。画像は後で IndexedDB から注入する。
+  const [cards, setCards] = useState<BusinessCard[]>(loadMetadata);
 
   const [lastBackupTime, setLastBackupTime] = useState<number | null>(() => {
     try {
@@ -37,10 +48,50 @@ export const useBusinessCards = () => {
     }
   });
 
-  // Persistence and Auto-backup
+  // IndexedDB からの画像ロード完了後のみ永続化を実行するフラグ
+  const initializedRef = useRef(false);
+
+  // マウント時: 旧フォーマット（localStorage に base64 画像）を IndexedDB へ移行し、
+  // 全画像を IndexedDB から読み込んでカード状態にマージする
   useEffect(() => {
+    const init = async () => {
+      try {
+        const metadata = loadMetadata();
+
+        // 旧フォーマットの移行: imageUri が base64 データなら IndexedDB へ移動
+        const toMigrate = metadata.filter(
+          c => c.imageUri && typeof c.imageUri === 'string' && c.imageUri.startsWith('data:')
+        );
+        if (toMigrate.length > 0) {
+          await Promise.all(
+            toMigrate.map(c => saveImage(c.id, c.imageUri as string))
+          );
+        }
+
+        // IndexedDB から全画像を取得してメタデータにマージ
+        const images = await getAllImages();
+        const cardsWithImages = metadata.map(c => ({
+          ...c,
+          imageUri: images[c.id] ?? null,
+        }));
+
+        initializedRef.current = true;
+        setCards(cardsWithImages);
+      } catch (e) {
+        console.error('Failed to initialize cards with images:', e);
+        initializedRef.current = true;
+      }
+    };
+    init();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 永続化 & 自動バックアップ
+  // IndexedDB ロード完了前は実行しない（initializedRef で制御）
+  useEffect(() => {
+    if (!initializedRef.current) return;
+
     try {
-      localStorage.setItem('bizcard_data', JSON.stringify(cards));
+      saveMetadata(cards); // 画像なしのメタデータのみ保存
     } catch (e) {
       console.error('Failed to save cards:', e);
     }
@@ -48,11 +99,9 @@ export const useBusinessCards = () => {
     const checkAutoBackup = () => {
       const now = Date.now();
       const ONE_DAY = 24 * 60 * 60 * 1000;
-
-      if (!lastBackupTime || (now - lastBackupTime > ONE_DAY)) {
+      if (!lastBackupTime || now - lastBackupTime > ONE_DAY) {
         try {
-          console.log("Performing auto-backup...");
-          localStorage.setItem('bizcard_backup', JSON.stringify(cards));
+          saveMetadata(cards, 'bizcard_backup');
           localStorage.setItem('bizcard_last_backup_time', now.toString());
           setLastBackupTime(now);
         } catch (e) {
@@ -66,16 +115,29 @@ export const useBusinessCards = () => {
   }, [cards, lastBackupTime]);
 
   const addCard = (card: BusinessCard) => {
-    setCards([card, ...cards]);
+    if (card.imageUri) {
+      saveImage(card.id, card.imageUri).catch(e =>
+        console.error('Failed to save image to IndexedDB:', e)
+      );
+    }
+    setCards(prev => [card, ...prev]);
   };
 
   const updateCard = (updatedCard: BusinessCard) => {
-    setCards(cards.map(c => c.id === updatedCard.id ? updatedCard : c));
+    if (updatedCard.imageUri) {
+      saveImage(updatedCard.id, updatedCard.imageUri).catch(e =>
+        console.error('Failed to save image to IndexedDB:', e)
+      );
+    }
+    setCards(prev => prev.map(c => c.id === updatedCard.id ? updatedCard : c));
   };
 
   const deleteCard = (id: string) => {
-    if (confirm("この名刺を削除してもよろしいですか？")) {
-      setCards(cards.filter(c => c.id !== id));
+    if (confirm('この名刺を削除してもよろしいですか？')) {
+      deleteImage(id).catch(e =>
+        console.error('Failed to delete image from IndexedDB:', e)
+      );
+      setCards(prev => prev.filter(c => c.id !== id));
       return true;
     }
     return false;
@@ -84,7 +146,7 @@ export const useBusinessCards = () => {
   const createBackup = () => {
     try {
       const now = Date.now();
-      localStorage.setItem('bizcard_backup', JSON.stringify(cards));
+      saveMetadata(cards, 'bizcard_backup');
       localStorage.setItem('bizcard_last_backup_time', now.toString());
       setLastBackupTime(now);
       alert('バックアップを作成しました。');
@@ -94,33 +156,51 @@ export const useBusinessCards = () => {
     }
   };
 
-  const restoreBackup = () => {
-    let backupData: string | null;
+  const restoreBackup = async () => {
+    let backupRaw: string | null;
     try {
-      backupData = localStorage.getItem('bizcard_backup');
-    } catch (e) {
-      console.error('Failed to read backup:', e);
+      backupRaw = localStorage.getItem('bizcard_backup');
+    } catch {
       alert('バックアップデータの読み込みに失敗しました。');
       return;
     }
-    if (!backupData) {
+    if (!backupRaw) {
       alert('バックアップデータが見つかりません。');
       return;
     }
-    if (confirm('現在のデータを上書きしてバックアップから復元しますか？この操作は取り消せません。')) {
-      try {
-        const parsed = JSON.parse(backupData);
-        setCards(parsed);
-        alert('復元が完了しました。');
-      } catch (e) {
-        alert('データの復元に失敗しました。');
+    if (!confirm('現在のデータを上書きしてバックアップから復元しますか？この操作は取り消せません。')) {
+      return;
+    }
+    try {
+      const parsed: BusinessCard[] = JSON.parse(backupRaw);
+
+      // 旧フォーマットのバックアップ対応: base64 画像があれば IndexedDB へ移行
+      const toMigrate = parsed.filter(
+        c => c.imageUri && typeof c.imageUri === 'string' && c.imageUri.startsWith('data:')
+      );
+      if (toMigrate.length > 0) {
+        await Promise.all(
+          toMigrate.map(c => saveImage(c.id, c.imageUri as string))
+        );
       }
+
+      // IndexedDB から最新の画像をマージ
+      const images = await getAllImages();
+      const cardsWithImages = parsed.map(c => ({
+        ...c,
+        imageUri: images[c.id] ?? null,
+      }));
+
+      setCards(cardsWithImages);
+      alert('復元が完了しました。');
+    } catch {
+      alert('データの復元に失敗しました。');
     }
   };
 
   const exportCSV = () => {
     if (cards.length === 0) {
-      alert("エクスポートするデータがありません。");
+      alert('エクスポートするデータがありません。');
       return;
     }
 
@@ -139,18 +219,17 @@ export const useBusinessCards = () => {
       escapeCSV(c.note),
       escapeCSV(new Date(c.createdAt).toLocaleString()),
     ]);
-    
+
     const csvContent = [
       headers.join(','),
       ...rows.map(r => r.join(','))
     ].join('\n');
 
-    // Add BOM for Excel compatibility with UTF-8
     const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `bizcards_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute('download', `bizcards_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -164,6 +243,6 @@ export const useBusinessCards = () => {
     deleteCard,
     createBackup,
     restoreBackup,
-    exportCSV
+    exportCSV,
   };
 };
