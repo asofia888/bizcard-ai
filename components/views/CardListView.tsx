@@ -236,9 +236,9 @@ export const CardListView: React.FC<CardListViewProps> = ({
                     {groupedCards![group].length}
                   </span>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-2.5">
                   {groupedCards![group].map(card => (
-                    <CardItem key={card.id} card={card} />
+                    <ListItem key={card.id} card={card} />
                   ))}
                 </div>
               </div>
