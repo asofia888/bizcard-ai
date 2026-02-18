@@ -81,7 +81,10 @@ export const CardListView: React.FC<CardListViewProps> = ({
         onClick={() => onSelectCard(card)}
         className="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-100/80 active:scale-[0.98] transition-all cursor-pointer flex items-center gap-3.5 hover:shadow-md hover:border-slate-200"
       >
-        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${g.from} ${g.to} flex-shrink-0 flex items-center justify-center text-white font-extrabold text-lg overflow-hidden shadow-sm`}>
+        <div
+          className={`h-11 flex-shrink-0 rounded-lg bg-gradient-to-br ${g.from} ${g.to} flex items-center justify-center text-white font-extrabold text-base overflow-hidden shadow-sm`}
+          style={{ aspectRatio: '91/55' }}
+        >
           {card.imageUri ? (
             <img src={card.imageUri} alt="" className="w-full h-full object-cover" />
           ) : (
