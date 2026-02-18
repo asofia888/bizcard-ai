@@ -96,10 +96,14 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
           )}
 
           {tempImage && (
-            <div className="relative h-56 rounded-2xl overflow-hidden bg-slate-900 shadow-lg">
-              <img src={tempImage} alt="Preview" className="w-full h-full object-contain opacity-90" />
-              <div className="absolute inset-0 flex items-end justify-center pb-3">
-                <p className="text-white text-xs bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">
+            /* 名刺比率(91:55)でプレビュー表示 */
+            <div
+              className="w-full rounded-2xl overflow-hidden shadow-md bg-slate-900 relative"
+              style={{ aspectRatio: '91/55' }}
+            >
+              <img src={tempImage} alt="Preview" className="w-full h-full object-contain" />
+              <div className="absolute bottom-2 left-0 right-0 flex justify-center">
+                <p className="text-white text-[11px] bg-black/50 px-3 py-0.5 rounded-full backdrop-blur-sm">
                   {status === ExtractionStatus.SUCCESS && (formData as any).rotation
                     ? `自動回転: ${(formData as any).rotation}°`
                     : 'プレビュー'}

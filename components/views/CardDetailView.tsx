@@ -87,23 +87,41 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
 
       <div className="flex-1 overflow-y-auto p-4 pb-24 no-scrollbar">
         <div className="space-y-4">
-          {/* Hero Card */}
+          {/* ── Hero ── */}
           <div className="bg-white rounded-3xl shadow-lg border border-slate-100 overflow-hidden">
-            <div className={`h-40 bg-gradient-to-br ${gradient} relative overflow-hidden`}>
-              <div className="absolute -top-4 -right-4 w-32 h-32 bg-white/10 rounded-full"></div>
-              <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-black/10 rounded-full"></div>
-            </div>
-            <div className="px-6 pb-6 pt-0 flex flex-col items-center relative">
-              <div className="w-24 h-24 rounded-2xl border-4 border-white -mt-12 shadow-lg flex items-center justify-center overflow-hidden z-10 relative">
-                {card.imageUri ? (
-                  <img src={card.imageUri} className="w-full h-full object-cover" alt="Card" />
-                ) : (
-                  <div className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
-                    <span className="text-4xl font-extrabold text-white">{(card.name || card.company).charAt(0)}</span>
-                  </div>
-                )}
+            {card.imageUri ? (
+              /* 名刺画像を名刺比率(91:55)で表示 */
+              <div className="p-3 bg-slate-100">
+                <div
+                  className="w-full rounded-xl overflow-hidden shadow-md"
+                  style={{ aspectRatio: '91/55' }}
+                >
+                  <img
+                    src={card.imageUri}
+                    className="w-full h-full object-cover"
+                    alt="名刺"
+                  />
+                </div>
               </div>
-              <div className="mt-3 text-center">
+            ) : (
+              /* 画像なし: グラデーションヘッダー + イニシャルアバター */
+              <div className={`h-40 bg-gradient-to-br ${gradient} relative overflow-hidden`}>
+                <div className="absolute -top-4 -right-4 w-32 h-32 bg-white/10 rounded-full" />
+                <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-black/10 rounded-full" />
+              </div>
+            )}
+
+            <div className={`px-6 pb-6 flex flex-col items-center ${card.imageUri ? 'pt-4' : 'pt-0 relative'}`}>
+              {!card.imageUri && (
+                <div className="w-24 h-24 rounded-2xl border-4 border-white -mt-12 shadow-lg overflow-hidden z-10 relative">
+                  <div className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+                    <span className="text-4xl font-extrabold text-white">
+                      {(card.name || card.company).charAt(0)}
+                    </span>
+                  </div>
+                </div>
+              )}
+              <div className={`${card.imageUri ? '' : 'mt-3'} text-center`}>
                 <h2 className="text-2xl font-extrabold text-slate-900 leading-tight">{card.name || '—'}</h2>
                 <p className="text-blue-600 font-bold text-sm mt-1">{card.company}</p>
                 <div className="flex justify-center gap-2 mt-2 flex-wrap">
@@ -118,7 +136,7 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
             </div>
           </div>
 
-          {/* Action Buttons */}
+          {/* ── Action Buttons ── */}
           <div className="grid grid-cols-4 gap-3">
             {actionButtons.map((btn, i) => (
               <button
@@ -135,7 +153,7 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
             ))}
           </div>
 
-          {/* Info List */}
+          {/* ── Info List ── */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             {infoItems.map((item, i) => (
               <div
@@ -153,7 +171,7 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
             ))}
           </div>
 
-          {/* Note */}
+          {/* ── Note ── */}
           {card.note && (
             <div className="bg-amber-50 rounded-2xl border border-amber-100 p-4">
               <div className="flex items-center gap-2 mb-2">
