@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BusinessCard } from '../../types';
 import {
   ArrowLeftIcon, TrashIcon, PhoneIcon, MailIcon, GlobeIcon, MapPinIcon, FileTextIcon
@@ -28,8 +28,138 @@ function avatarGradient(name: string): string {
   return AVATAR_GRADIENTS[Math.abs(hash) % AVATAR_GRADIENTS.length];
 }
 
+// ── ピンチズームビューアー ──────────────────────────────────────────
+const ImageZoomViewer: React.FC<{ src: string; onClose: () => void }> = ({ src, onClose }) => {
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+
+  // refs で最新値を保持（クロージャの陳腐化を防ぐ）
+  const scaleRef  = useRef(1);
+  const offsetRef = useRef({ x: 0, y: 0 });
+  const pinchRef  = useRef<{ dist: number } | null>(null);
+  const dragRef   = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  const tapRef    = useRef(0);
+
+  // スクロールロック
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  const applyTransform = (newScale: number, ox: number, oy: number) => {
+    const clamped = Math.min(6, Math.max(1, newScale));
+    const nx = clamped === 1 ? 0 : ox;
+    const ny = clamped === 1 ? 0 : oy;
+    scaleRef.current  = clamped;
+    offsetRef.current = { x: nx, y: ny };
+    setScale(clamped);
+    setOffset({ x: nx, y: ny });
+  };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      const now = Date.now();
+      if (now - tapRef.current < 260) {
+        // ダブルタップでズームトグル
+        const ns = scaleRef.current > 1.5 ? 1 : 2.5;
+        applyTransform(ns, 0, 0);
+      }
+      tapRef.current = now;
+      dragRef.current = {
+        x: e.touches[0].clientX, y: e.touches[0].clientY,
+        ox: offsetRef.current.x,  oy: offsetRef.current.y,
+      };
+    } else if (e.touches.length === 2) {
+      const [t1, t2] = [e.touches[0], e.touches[1]];
+      pinchRef.current = {
+        dist: Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY),
+      };
+      dragRef.current = null;
+    }
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchRef.current) {
+      const [t1, t2] = [e.touches[0], e.touches[1]];
+      const newDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const ratio   = newDist / pinchRef.current.dist;
+      applyTransform(scaleRef.current * ratio, offsetRef.current.x, offsetRef.current.y);
+      pinchRef.current.dist = newDist;
+    } else if (e.touches.length === 1 && dragRef.current && scaleRef.current > 1) {
+      const dx = e.touches[0].clientX - dragRef.current.x;
+      const dy = e.touches[0].clientY - dragRef.current.y;
+      const nx = dragRef.current.ox + dx;
+      const ny = dragRef.current.oy + dy;
+      offsetRef.current = { x: nx, y: ny };
+      setOffset({ x: nx, y: ny });
+    }
+  };
+
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length < 2) pinchRef.current = null;
+    if (e.touches.length === 0 && scaleRef.current < 1.05) {
+      applyTransform(1, 0, 0);
+    }
+  };
+
+  const onWheel = (e: React.WheelEvent) => {
+    e.stopPropagation();
+    const delta = e.deltaY > 0 ? 0.85 : 1.15;
+    applyTransform(scaleRef.current * delta, offsetRef.current.x, offsetRef.current.y);
+  };
+
+  const handleBackdropClick = () => {
+    if (scaleRef.current <= 1) onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
+      onClick={handleBackdropClick}
+    >
+      {/* 閉じるボタン */}
+      <button
+        className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-xl leading-none backdrop-blur-sm transition-colors"
+        onClick={e => { e.stopPropagation(); onClose(); }}
+      >
+        ✕
+      </button>
+
+      {/* ヒント */}
+      <p className="absolute bottom-6 inset-x-0 text-center text-white/35 text-xs pointer-events-none select-none">
+        ピンチ / ダブルタップで拡大・縮小
+      </p>
+
+      {/* 画像エリア */}
+      <div
+        className="w-full h-full flex items-center justify-center overflow-hidden"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onWheel={onWheel}
+        onClick={e => e.stopPropagation()}
+      >
+        <img
+          src={src}
+          alt="名刺"
+          draggable={false}
+          className="max-w-full max-h-full object-contain select-none"
+          style={{
+            transform: `scale(${scale}) translate(${offset.x / scale}px, ${offset.y / scale}px)`,
+            willChange: 'transform',
+            cursor: scale > 1 ? 'grab' : 'default',
+          }}
+        />
+      </div>
+    </div>
+  );
+};
+
+// ── 詳細ビュー ──────────────────────────────────────────────────────
 export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, onEdit, onDelete }) => {
   const gradient = avatarGradient(card.name || card.company);
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
 
   const actionButtons = [
     {
@@ -68,6 +198,11 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
 
   return (
     <>
+      {/* ピンチズームオーバーレイ */}
+      {isZoomOpen && card.imageUri && (
+        <ImageZoomViewer src={card.imageUri} onClose={() => setIsZoomOpen(false)} />
+      )}
+
       <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-slate-100 p-4 sticky top-0 z-20">
         <div className="flex justify-between items-center">
           <button
@@ -90,18 +225,20 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
           {/* ── Hero ── */}
           <div className="bg-white rounded-3xl shadow-lg border border-slate-100 overflow-hidden">
             {card.imageUri ? (
-              /* 名刺画像を名刺比率(91:55)で表示 */
+              /* 名刺画像を名刺比率(91:55)で表示 — タップでズームオープン */
               <div className="p-3 bg-slate-100">
                 <div
-                  className="w-full rounded-xl overflow-hidden shadow-md"
+                  className="w-full rounded-xl overflow-hidden shadow-md cursor-zoom-in active:opacity-90 transition-opacity"
                   style={{ aspectRatio: '91/55' }}
+                  onClick={() => setIsZoomOpen(true)}
                 >
                   <img
                     src={card.imageUri}
                     className="w-full h-full object-cover"
-                    alt="名刺"
+                    alt="名刺（タップで拡大）"
                   />
                 </div>
+                <p className="text-center text-[10px] text-slate-400 mt-1.5">タップで拡大</p>
               </div>
             ) : (
               /* 画像なし: グラデーションヘッダー + イニシャルアバター */
