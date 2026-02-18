@@ -9,21 +9,21 @@ interface CardListViewProps {
   onOpenSettings: () => void;
 }
 
-const AVATAR_GRADIENTS = [
-  'from-violet-500 to-purple-600',
-  'from-blue-500 to-indigo-600',
-  'from-emerald-500 to-teal-600',
-  'from-orange-500 to-amber-600',
-  'from-pink-500 to-rose-600',
-  'from-cyan-500 to-sky-600',
+const CARD_GRADIENTS = [
+  { from: 'from-violet-600', to: 'to-purple-700', accent: 'bg-white/15' },
+  { from: 'from-blue-600',   to: 'to-indigo-700', accent: 'bg-white/15' },
+  { from: 'from-emerald-600',to: 'to-teal-700',   accent: 'bg-white/15' },
+  { from: 'from-orange-500', to: 'to-amber-600',  accent: 'bg-white/15' },
+  { from: 'from-pink-600',   to: 'to-rose-700',   accent: 'bg-white/15' },
+  { from: 'from-cyan-600',   to: 'to-sky-700',    accent: 'bg-white/15' },
 ];
 
-function avatarGradient(name: string): string {
+function cardGradient(name: string) {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return AVATAR_GRADIENTS[Math.abs(hash) % AVATAR_GRADIENTS.length];
+  return CARD_GRADIENTS[Math.abs(hash) % CARD_GRADIENTS.length];
 }
 
 export const CardListView: React.FC<CardListViewProps> = ({
@@ -73,33 +73,80 @@ export const CardListView: React.FC<CardListViewProps> = ({
     });
   }, [groupedCards]);
 
-  const CardItem: React.FC<{ card: BusinessCard }> = ({ card }) => (
-    <div
-      onClick={() => onSelectCard(card)}
-      className="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-100/80 active:scale-[0.98] transition-all cursor-pointer flex items-center gap-3.5 hover:shadow-md hover:border-slate-200"
-    >
-      <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${avatarGradient(card.name || card.company)} flex-shrink-0 flex items-center justify-center text-white font-extrabold text-lg overflow-hidden shadow-sm`}>
+  // ── 名刺サイズ(91:55)で表示する CardItem ──
+  const CardItem: React.FC<{ card: BusinessCard }> = ({ card }) => {
+    const g = cardGradient(card.name || card.company);
+
+    return (
+      <div
+        onClick={() => onSelectCard(card)}
+        className="w-full rounded-2xl overflow-hidden shadow-md border border-slate-200/60 active:scale-[0.97] transition-all cursor-pointer"
+        style={{ aspectRatio: '91/55' }}
+      >
         {card.imageUri ? (
-          <img src={card.imageUri} alt="" className="w-full h-full object-cover" />
+          /* ── 写真あり: 実際の名刺画像を表示 ── */
+          <div className="relative w-full h-full">
+            <img
+              src={card.imageUri}
+              alt={card.name}
+              className="w-full h-full object-cover"
+            />
+            {/* 下部グラデーションオーバーレイで名前を読みやすく */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/55 via-black/20 to-transparent px-3 pt-8 pb-2.5">
+              <p className="text-white font-extrabold text-sm leading-tight truncate drop-shadow">
+                {card.name}
+              </p>
+              {card.company && (
+                <p className="text-white/80 text-xs leading-tight truncate">{card.company}</p>
+              )}
+            </div>
+          </div>
         ) : (
-          (card.name || card.company).charAt(0).toUpperCase()
+          /* ── 写真なし: デザイン名刺を生成 ── */
+          <div className={`relative w-full h-full bg-gradient-to-br ${g.from} ${g.to} overflow-hidden`}>
+            {/* 装飾サークル */}
+            <div className={`absolute -top-5 -right-5 w-24 h-24 rounded-full ${g.accent}`} />
+            <div className={`absolute -bottom-8 -left-8 w-28 h-28 rounded-full bg-black/15`} />
+
+            {/* 名刺コンテンツ */}
+            <div className="absolute inset-0 p-4 flex flex-col justify-between">
+              {/* 上部: 会社名 + 氏名 + 役職 */}
+              <div>
+                {card.company && (
+                  <p className="text-white/65 text-[10px] font-bold uppercase tracking-widest truncate mb-0.5">
+                    {card.company}
+                  </p>
+                )}
+                <h3 className="text-white font-extrabold text-xl leading-tight truncate">
+                  {card.name || card.company || '—'}
+                </h3>
+                {card.title && (
+                  <p className="text-white/75 text-xs mt-0.5 truncate">{card.title}</p>
+                )}
+              </div>
+
+              {/* 下部: メール・電話 + 国バッジ */}
+              <div className="flex items-end justify-between gap-2">
+                <div className="min-w-0 space-y-0.5">
+                  {card.email && (
+                    <p className="text-white/60 text-[10px] truncate">{card.email}</p>
+                  )}
+                  {card.phone && (
+                    <p className="text-white/60 text-[10px] truncate">{card.phone}</p>
+                  )}
+                </div>
+                {card.country && (
+                  <span className="flex-shrink-0 text-[10px] font-bold bg-white/20 text-white px-2 py-0.5 rounded-md">
+                    {card.country}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 mb-0.5">
-          <h3 className="font-bold text-slate-900 truncate text-sm leading-tight">{card.name || '—'}</h3>
-          {card.country && (
-            <span className="text-[10px] font-semibold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md flex-shrink-0">{card.country}</span>
-          )}
-        </div>
-        <p className="text-xs text-blue-600 font-semibold truncate leading-tight">{card.company}</p>
-        {card.title && <p className="text-xs text-slate-400 truncate leading-tight mt-0.5">{card.title}</p>}
-      </div>
-      <svg className="w-4 h-4 text-slate-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-      </svg>
-    </div>
-  );
+    );
+  };
 
   return (
     <>
@@ -140,7 +187,7 @@ export const CardListView: React.FC<CardListViewProps> = ({
 
       <div className="flex-1 overflow-y-auto p-4 pb-28 no-scrollbar">
         <div className="space-y-3">
-          {/* Group Toggle */}
+          {/* グループ切替タブ */}
           <div className="flex bg-slate-100 p-1 rounded-xl">
             {(['NONE', 'COUNTRY', 'COMPANY', 'TITLE'] as const).map(mode => (
               <button
@@ -170,21 +217,21 @@ export const CardListView: React.FC<CardListViewProps> = ({
               </p>
             </div>
           ) : groupBy === 'NONE' ? (
-            <div className="space-y-2.5">
+            <div className="space-y-4">
               {filteredCards.map(card => (
                 <CardItem key={card.id} card={card} />
               ))}
             </div>
           ) : (
             sortedGroupKeys.map(group => (
-              <div key={group} className="mb-2">
+              <div key={group}>
                 <div className="flex items-center justify-between py-2 px-1 mb-2">
                   <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-widest">{group}</h3>
                   <span className="bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-[10px] font-bold">
                     {groupedCards![group].length}
                   </span>
                 </div>
-                <div className="space-y-2.5">
+                <div className="space-y-4">
                   {groupedCards![group].map(card => (
                     <CardItem key={card.id} card={card} />
                   ))}
