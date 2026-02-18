@@ -11,7 +11,7 @@ export async function extractCard(apiKey: string, base64Image: string): Promise<
   const cleanBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');
 
   const response = await ai.models.generateContent({
-    model: 'gemini-flash-latest',
+    model: 'gemini-2.5-flash',
     contents: {
       parts: [
         {

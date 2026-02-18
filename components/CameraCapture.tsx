@@ -10,16 +10,26 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const startCamera = async () => {
     try {
       setError(null);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }, // Prefer back camera
-        audio: false,
-      });
-      if (videoRef.current) {
+      // まず背面カメラを試し、失敗したら前面カメラ（PC・ノートPC対応）
+      let stream: MediaStream | null = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' },
+          audio: false,
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+      }
+      if (videoRef.current && stream) {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
         setIsStreaming(true);
@@ -36,6 +46,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
       stream.getTracks().forEach(track => track.stop());
       videoRef.current.srcObject = null;
       setIsStreaming(false);
+      setVideoReady(false);
     }
   };
 
@@ -45,19 +56,17 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
   }, []);
 
   const takePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const context = canvas.getContext('2d');
-
-      if (context) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = canvas.toDataURL('image/jpeg', 0.8);
-        onCapture(imageData);
-      }
-    }
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    if (video.videoWidth === 0 || video.videoHeight === 0) return;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = canvas.toDataURL('image/jpeg', 0.8);
+    onCapture(imageData);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,6 +107,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
                className="w-full h-full object-cover" 
                playsInline 
                muted 
+               onLoadedMetadata={() => setVideoReady(true)}
              />
              <div className="absolute inset-0 border-[40px] border-black/50 pointer-events-none flex items-center justify-center">
                 <div className="border-2 border-white/50 w-full h-2/3 rounded-lg"></div>
@@ -116,7 +126,8 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
 
             <button 
               onClick={takePhoto} 
-              className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center bg-white/20 active:bg-white/40 transition-all"
+              disabled={!videoReady}
+              className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center bg-white/20 active:bg-white/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <div className="w-16 h-16 bg-white rounded-full"></div>
             </button>
