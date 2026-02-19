@@ -333,6 +333,14 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
             </div>
           )}
 
+          {/* ── 登録日時 ── */}
+          <p className="text-center text-[11px] text-slate-400">
+            登録日時: {new Date(card.createdAt).toLocaleString('ja-JP', {
+              year: 'numeric', month: '2-digit', day: '2-digit',
+              hour: '2-digit', minute: '2-digit',
+            })}
+          </p>
+
           <button
             onClick={() => onDelete(card.id)}
             className="w-full py-4 text-red-500 font-bold hover:bg-red-50 rounded-2xl transition-colors flex items-center justify-center gap-2 border border-red-100"
