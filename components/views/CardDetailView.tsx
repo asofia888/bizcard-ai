@@ -182,7 +182,7 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
     },
     {
       icon: <MapPinIcon />, label: '地図',
-      action: () => window.open(`https://maps.google.com/?q=${card.address}`, '_blank'),
+      action: () => window.open(`https://maps.google.com/?q=${encodeURIComponent(card.address)}`, '_blank'),
       disabled: !card.address,
       bg: 'bg-orange-100 text-orange-600 group-hover:bg-orange-500 group-hover:text-white',
     },
