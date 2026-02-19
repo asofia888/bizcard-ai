@@ -37,7 +37,7 @@ const ImageZoomViewer: React.FC<{ src: string; onClose: () => void }> = ({ src, 
   const scaleRef  = useRef(1);
   const offsetRef = useRef({ x: 0, y: 0 });
   const pinchRef  = useRef<{ dist: number } | null>(null);
-  const dragRef   = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  const dragRef   = useRef<{ x: number; y: number } | null>(null);
   const tapRef    = useRef(0);
 
   // スクロールロック
@@ -49,12 +49,15 @@ const ImageZoomViewer: React.FC<{ src: string; onClose: () => void }> = ({ src, 
 
   const applyTransform = (newScale: number, ox: number, oy: number) => {
     const clamped = Math.min(6, Math.max(1, newScale));
-    const nx = clamped === 1 ? 0 : ox;
-    const ny = clamped === 1 ? 0 : oy;
+    // 画像が画面外に飛び出さないよう境界をクランプ
+    const maxX = window.innerWidth  * (clamped - 1) / 2;
+    const maxY = window.innerHeight * (clamped - 1) / 2;
+    const cx = clamped === 1 ? 0 : Math.min(maxX, Math.max(-maxX, ox));
+    const cy = clamped === 1 ? 0 : Math.min(maxY, Math.max(-maxY, oy));
     scaleRef.current  = clamped;
-    offsetRef.current = { x: nx, y: ny };
+    offsetRef.current = { x: cx, y: cy };
     setScale(clamped);
-    setOffset({ x: nx, y: ny });
+    setOffset({ x: cx, y: cy });
   };
 
   const onTouchStart = (e: React.TouchEvent) => {
@@ -66,10 +69,7 @@ const ImageZoomViewer: React.FC<{ src: string; onClose: () => void }> = ({ src, 
         applyTransform(ns, 0, 0);
       }
       tapRef.current = now;
-      dragRef.current = {
-        x: e.touches[0].clientX, y: e.touches[0].clientY,
-        ox: offsetRef.current.x,  oy: offsetRef.current.y,
-      };
+      dragRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     } else if (e.touches.length === 2) {
       const [t1, t2] = [e.touches[0], e.touches[1]];
       pinchRef.current = {
@@ -87,17 +87,22 @@ const ImageZoomViewer: React.FC<{ src: string; onClose: () => void }> = ({ src, 
       applyTransform(scaleRef.current * ratio, offsetRef.current.x, offsetRef.current.y);
       pinchRef.current.dist = newDist;
     } else if (e.touches.length === 1 && dragRef.current && scaleRef.current > 1) {
+      // インクリメンタル方式: 前フレームからの差分で更新
       const dx = e.touches[0].clientX - dragRef.current.x;
       const dy = e.touches[0].clientY - dragRef.current.y;
-      const nx = dragRef.current.ox + dx;
-      const ny = dragRef.current.oy + dy;
-      offsetRef.current = { x: nx, y: ny };
-      setOffset({ x: nx, y: ny });
+      dragRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      applyTransform(scaleRef.current, offsetRef.current.x + dx, offsetRef.current.y + dy);
     }
   };
 
   const onTouchEnd = (e: React.TouchEvent) => {
-    if (e.touches.length < 2) pinchRef.current = null;
+    if (e.touches.length < 2) {
+      pinchRef.current = null;
+      // ピンチ → 1本指ドラッグへの移行: 残った指のドラッグ基点をセット
+      if (e.touches.length === 1) {
+        dragRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+    }
     if (e.touches.length === 0 && scaleRef.current < 1.05) {
       applyTransform(1, 0, 0);
     }
