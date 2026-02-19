@@ -10,12 +10,12 @@ interface CardListViewProps {
 }
 
 const CARD_GRADIENTS = [
-  { from: 'from-violet-600', to: 'to-purple-700', accent: 'bg-white/15' },
-  { from: 'from-blue-600',   to: 'to-indigo-700', accent: 'bg-white/15' },
-  { from: 'from-emerald-600',to: 'to-teal-700',   accent: 'bg-white/15' },
-  { from: 'from-orange-500', to: 'to-amber-600',  accent: 'bg-white/15' },
-  { from: 'from-pink-600',   to: 'to-rose-700',   accent: 'bg-white/15' },
-  { from: 'from-cyan-600',   to: 'to-sky-700',    accent: 'bg-white/15' },
+  { from: 'from-violet-600', to: 'to-purple-700' },
+  { from: 'from-blue-600',   to: 'to-indigo-700' },
+  { from: 'from-emerald-600',to: 'to-teal-700'   },
+  { from: 'from-orange-500', to: 'to-amber-600'  },
+  { from: 'from-pink-600',   to: 'to-rose-700'   },
+  { from: 'from-cyan-600',   to: 'to-sky-700'    },
 ];
 
 function cardGradient(name: string) {
@@ -25,6 +25,49 @@ function cardGradient(name: string) {
   }
   return CARD_GRADIENTS[Math.abs(hash) % CARD_GRADIENTS.length];
 }
+
+function cleanSearchQuery(q: string): string {
+  return q
+    .replace(/^(?:Mr\.?|Ms\.?|Mrs\.?|Dr\.?)\s+/i, '')
+    .replace(/[ .]*(?:様|さん|殿|Mr\.?|Ms\.?|Mrs\.?|Dr\.?)$/i, '')
+    .trim()
+    .toLowerCase();
+}
+
+// ── トップレベルコンポーネント（毎レンダリングで再生成されない） ──
+const ListItem: React.FC<{ card: BusinessCard; onSelect: (card: BusinessCard) => void }> = ({ card, onSelect }) => {
+  const g = cardGradient(card.name || card.company);
+  return (
+    <div
+      onClick={() => onSelect(card)}
+      className="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-100/80 active:scale-[0.98] transition-all cursor-pointer flex items-center gap-3.5 hover:shadow-md hover:border-slate-200"
+    >
+      <div
+        className={`h-11 flex-shrink-0 rounded-lg bg-gradient-to-br ${g.from} ${g.to} flex items-center justify-center text-white font-extrabold text-base overflow-hidden shadow-sm`}
+        style={{ aspectRatio: '91/55' }}
+      >
+        {card.imageUri ? (
+          <img src={card.imageUri} alt="" className="w-full h-full object-cover" />
+        ) : (
+          (card.name || card.company).charAt(0).toUpperCase()
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <h3 className="font-bold text-slate-900 truncate text-sm leading-tight">{card.name || '—'}</h3>
+          {card.country && (
+            <span className="text-[10px] font-semibold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md flex-shrink-0">{card.country}</span>
+          )}
+        </div>
+        <p className="text-xs text-blue-600 font-semibold truncate leading-tight">{card.company}</p>
+        {card.title && <p className="text-xs text-slate-400 truncate leading-tight mt-0.5">{card.title}</p>}
+      </div>
+      <svg className="w-4 h-4 text-slate-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+      </svg>
+    </div>
+  );
+};
 
 export const CardListView: React.FC<CardListViewProps> = ({
   cards,
@@ -37,22 +80,16 @@ export const CardListView: React.FC<CardListViewProps> = ({
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'NEWEST' | 'OLDEST' | 'NAME_ASC' | 'COMPANY_ASC'>('NEWEST');
 
-  const getCleanQuery = (q: string) =>
-    q.replace(/^(?:Mr\.?|Ms\.?|Mrs\.?|Dr\.?)\s+/i, '')
-     .replace(/[ .]*(?:様|さん|殿|Mr\.?|Ms\.?|Mrs\.?|Dr\.?)$/i, '')
-     .trim();
-
-  const cleanQuery = getCleanQuery(searchQuery);
+  const cleanQuery = useMemo(() => cleanSearchQuery(searchQuery), [searchQuery]);
 
   const filteredCards = useMemo(() => {
-    const q = cleanQuery.toLowerCase();
     return cards.filter(c => {
-      const matchesSearch = !q ||
-        c.name.toLowerCase().includes(q) ||
-        c.company.toLowerCase().includes(q) ||
-        c.title.toLowerCase().includes(q) ||
-        (c.country || '').toLowerCase().includes(q) ||
-        (c.tags || []).some(t => t.toLowerCase().includes(q));
+      const matchesSearch = !cleanQuery ||
+        c.name.toLowerCase().includes(cleanQuery) ||
+        c.company.toLowerCase().includes(cleanQuery) ||
+        c.title.toLowerCase().includes(cleanQuery) ||
+        (c.country || '').toLowerCase().includes(cleanQuery) ||
+        (c.tags || []).some(t => t.toLowerCase().includes(cleanQuery));
       const matchesTag = !selectedTag || (c.tags || []).includes(selectedTag);
       return matchesSearch && matchesTag;
     });
@@ -101,86 +138,6 @@ export const CardListView: React.FC<CardListViewProps> = ({
       return a.localeCompare(b, 'ja');
     });
   }, [groupedCards]);
-
-  // ── 全て タブ用: 元のリスト行形式 ──
-  const ListItem: React.FC<{ card: BusinessCard }> = ({ card }) => {
-    const g = cardGradient(card.name || card.company);
-    return (
-      <div
-        onClick={() => onSelectCard(card)}
-        className="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-100/80 active:scale-[0.98] transition-all cursor-pointer flex items-center gap-3.5 hover:shadow-md hover:border-slate-200"
-      >
-        <div
-          className={`h-11 flex-shrink-0 rounded-lg bg-gradient-to-br ${g.from} ${g.to} flex items-center justify-center text-white font-extrabold text-base overflow-hidden shadow-sm`}
-          style={{ aspectRatio: '91/55' }}
-        >
-          {card.imageUri ? (
-            <img src={card.imageUri} alt="" className="w-full h-full object-cover" />
-          ) : (
-            (card.name || card.company).charAt(0).toUpperCase()
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <h3 className="font-bold text-slate-900 truncate text-sm leading-tight">{card.name || '—'}</h3>
-            {card.country && (
-              <span className="text-[10px] font-semibold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md flex-shrink-0">{card.country}</span>
-            )}
-          </div>
-          <p className="text-xs text-blue-600 font-semibold truncate leading-tight">{card.company}</p>
-          {card.title && <p className="text-xs text-slate-400 truncate leading-tight mt-0.5">{card.title}</p>}
-        </div>
-        <svg className="w-4 h-4 text-slate-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-        </svg>
-      </div>
-    );
-  };
-
-  // ── グループ表示用: 名刺サイズ(91:55) ──
-  const CardItem: React.FC<{ card: BusinessCard }> = ({ card }) => {
-    const g = cardGradient(card.name || card.company);
-    return (
-      <div
-        onClick={() => onSelectCard(card)}
-        className="w-full rounded-2xl overflow-hidden shadow-md border border-slate-200/60 active:scale-[0.97] transition-all cursor-pointer"
-        style={{ aspectRatio: '91/55' }}
-      >
-        {card.imageUri ? (
-          <div className="relative w-full h-full">
-            <img src={card.imageUri} alt={card.name} className="w-full h-full object-cover" />
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/55 via-black/20 to-transparent px-3 pt-8 pb-2.5">
-              <p className="text-white font-extrabold text-sm leading-tight truncate drop-shadow">{card.name}</p>
-              {card.company && <p className="text-white/80 text-xs leading-tight truncate">{card.company}</p>}
-            </div>
-          </div>
-        ) : (
-          <div className={`relative w-full h-full bg-gradient-to-br ${g.from} ${g.to} overflow-hidden`}>
-            <div className={`absolute -top-5 -right-5 w-24 h-24 rounded-full ${g.accent}`} />
-            <div className="absolute -bottom-8 -left-8 w-28 h-28 rounded-full bg-black/15" />
-            <div className="absolute inset-0 p-4 flex flex-col justify-between">
-              <div>
-                {card.company && (
-                  <p className="text-white/65 text-[10px] font-bold uppercase tracking-widest truncate mb-0.5">{card.company}</p>
-                )}
-                <h3 className="text-white font-extrabold text-xl leading-tight truncate">{card.name || card.company || '—'}</h3>
-                {card.title && <p className="text-white/75 text-xs mt-0.5 truncate">{card.title}</p>}
-              </div>
-              <div className="flex items-end justify-between gap-2">
-                <div className="min-w-0 space-y-0.5">
-                  {card.email && <p className="text-white/60 text-[10px] truncate">{card.email}</p>}
-                  {card.phone && <p className="text-white/60 text-[10px] truncate">{card.phone}</p>}
-                </div>
-                {card.country && (
-                  <span className="flex-shrink-0 text-[10px] font-bold bg-white/20 text-white px-2 py-0.5 rounded-md">{card.country}</span>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
 
   return (
     <>
@@ -283,7 +240,7 @@ export const CardListView: React.FC<CardListViewProps> = ({
           ) : groupBy === 'NONE' ? (
             <div className="space-y-2.5">
               {sortedFilteredCards.map(card => (
-                <ListItem key={card.id} card={card} />
+                <ListItem key={card.id} card={card} onSelect={onSelectCard} />
               ))}
             </div>
           ) : (
@@ -297,7 +254,7 @@ export const CardListView: React.FC<CardListViewProps> = ({
                 </div>
                 <div className="space-y-2.5">
                   {groupedCards![group].map(card => (
-                    <ListItem key={card.id} card={card} />
+                    <ListItem key={card.id} card={card} onSelect={onSelectCard} />
                   ))}
                 </div>
               </div>
