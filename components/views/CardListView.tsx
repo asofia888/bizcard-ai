@@ -44,17 +44,19 @@ export const CardListView: React.FC<CardListViewProps> = ({
 
   const cleanQuery = getCleanQuery(searchQuery);
 
-  const filteredCards = cards.filter(c => {
+  const filteredCards = useMemo(() => {
     const q = cleanQuery.toLowerCase();
-    const matchesSearch = !q ||
-      c.name.toLowerCase().includes(q) ||
-      c.company.toLowerCase().includes(q) ||
-      c.title.toLowerCase().includes(q) ||
-      (c.country || '').toLowerCase().includes(q) ||
-      (c.tags || []).some(t => t.toLowerCase().includes(q));
-    const matchesTag = !selectedTag || (c.tags || []).includes(selectedTag);
-    return matchesSearch && matchesTag;
-  });
+    return cards.filter(c => {
+      const matchesSearch = !q ||
+        c.name.toLowerCase().includes(q) ||
+        c.company.toLowerCase().includes(q) ||
+        c.title.toLowerCase().includes(q) ||
+        (c.country || '').toLowerCase().includes(q) ||
+        (c.tags || []).some(t => t.toLowerCase().includes(q));
+      const matchesTag = !selectedTag || (c.tags || []).includes(selectedTag);
+      return matchesSearch && matchesTag;
+    });
+  }, [cards, cleanQuery, selectedTag]);
 
   const sortedFilteredCards = useMemo(() => {
     return [...filteredCards].sort((a, b) => {
