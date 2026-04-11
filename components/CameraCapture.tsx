@@ -8,6 +8,7 @@ interface CameraCaptureProps {
 
 const MAX_DIMENSION = 1500;
 const JPEG_QUALITY = 0.82;
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 // 日本の名刺標準サイズ: 91mm × 55mm
 const CARD_ASPECT = 91 / 55;
 
@@ -24,7 +25,11 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
       let stream: MediaStream | null = null;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
           audio: false,
         });
       } catch {
@@ -96,6 +101,12 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    if (file.size > MAX_FILE_SIZE) {
+      setError('ファイルサイズが大きすぎます（上限: 20MB）。');
+      return;
+    }
+
     const reader = new FileReader();
     reader.onloadend = () => {
       const original = reader.result as string;
@@ -113,7 +124,13 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
           onCapture(original);
         }
       };
+      img.onerror = () => {
+        setError('画像の読み込みに失敗しました。別のファイルをお試しください。');
+      };
       img.src = original;
+    };
+    reader.onerror = () => {
+      setError('ファイルの読み込みに失敗しました。');
     };
     reader.readAsDataURL(file);
   };
