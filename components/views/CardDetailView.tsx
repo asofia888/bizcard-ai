@@ -325,15 +325,6 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
             ))}
           </div>
 
-          {/* ── vCard エクスポート ── */}
-          <button
-            onClick={() => exportVCard(card)}
-            className="w-full py-3.5 bg-teal-500 hover:bg-teal-600 active:bg-teal-700 text-white font-bold rounded-2xl transition-colors flex items-center justify-center gap-2 shadow-sm"
-          >
-            <UserPlusIcon className="w-5 h-5" />
-            連絡先に保存 (.vcf)
-          </button>
-
           {/* ── Info List ── */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             {infoItems.map((item, i) => (
@@ -370,6 +361,15 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
               hour: '2-digit', minute: '2-digit',
             })}
           </p>
+
+          {/* ── vCard エクスポート ── */}
+          <button
+            onClick={() => exportVCard(card)}
+            className="w-full py-3.5 bg-teal-500 hover:bg-teal-600 active:bg-teal-700 text-white font-bold rounded-2xl transition-colors flex items-center justify-center gap-2 shadow-sm"
+          >
+            <UserPlusIcon className="w-5 h-5" />
+            連絡先に保存 (.vcf)
+          </button>
 
           <button
             onClick={() => onDelete(card.id)}
