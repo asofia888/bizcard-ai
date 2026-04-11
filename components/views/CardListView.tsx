@@ -1,29 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { BusinessCard } from '../../types';
 import { CameraIcon, SearchIcon, PlusIcon, SettingsIcon, LogoIcon } from '../Icons';
+import { cardGradient } from '../../utils/gradients';
 
 interface CardListViewProps {
   cards: BusinessCard[];
   onSelectCard: (card: BusinessCard) => void;
   onAddCard: () => void;
   onOpenSettings: () => void;
-}
-
-const CARD_GRADIENTS = [
-  { from: 'from-brand-500', to: 'to-brand-700' },
-  { from: 'from-brand-400', to: 'to-brand-600' },
-  { from: 'from-brand-600', to: 'to-brand-800' },
-  { from: 'from-brand-300', to: 'to-brand-500' },
-  { from: 'from-brand-500', to: 'to-brand-800' },
-  { from: 'from-brand-400', to: 'to-brand-700' },
-];
-
-function cardGradient(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return CARD_GRADIENTS[Math.abs(hash) % CARD_GRADIENTS.length];
 }
 
 function cleanSearchQuery(q: string): string {

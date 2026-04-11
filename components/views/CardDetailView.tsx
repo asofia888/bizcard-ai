@@ -4,29 +4,13 @@ import {
   ArrowLeftIcon, TrashIcon, PhoneIcon, MailIcon, GlobeIcon, MapPinIcon, FileTextIcon, UserPlusIcon
 } from '../Icons';
 import { exportVCard } from '../../utils/vcardUtils';
+import { avatarGradient } from '../../utils/gradients';
 
 interface CardDetailViewProps {
   card: BusinessCard;
   onBack: () => void;
   onEdit: (card: BusinessCard) => void;
   onDelete: (id: string) => void;
-}
-
-const AVATAR_GRADIENTS = [
-  'from-brand-500 to-brand-700',
-  'from-brand-400 to-brand-600',
-  'from-brand-600 to-brand-800',
-  'from-brand-300 to-brand-500',
-  'from-brand-500 to-brand-800',
-  'from-brand-400 to-brand-700',
-];
-
-function avatarGradient(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return AVATAR_GRADIENTS[Math.abs(hash) % AVATAR_GRADIENTS.length];
 }
 
 // ── ピンチズームビューアー ──────────────────────────────────────────
