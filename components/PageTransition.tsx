@@ -42,7 +42,7 @@ export const PageTransition: React.FC<PageTransitionProps> = ({ children, direct
       exit={v.exit}
       transition={transition}
       className={className}
-      style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}
+      style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}
     >
       {children}
     </motion.div>

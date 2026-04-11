@@ -162,7 +162,7 @@ export default function App() {
 
   return (
     <DialogProvider>
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans max-w-md mx-auto shadow-2xl overflow-hidden relative">
+    <div className="h-screen bg-slate-50 flex flex-col font-sans max-w-md mx-auto shadow-2xl overflow-hidden relative">
 
       <AnimatePresence mode="wait" initial={false}>
         {view === 'LIST' && (
