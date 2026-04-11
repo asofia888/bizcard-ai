@@ -41,12 +41,19 @@ const ImageZoomViewer: React.FC<{ src: string; onClose: () => void }> = ({ src, 
   const dragRef   = useRef<{ x: number; y: number } | null>(null);
   const tapRef    = useRef(0);
 
-  // スクロールロック
+  // スクロールロック + Escキーで閉じる
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
-  }, []);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
 
   const applyTransform = (newScale: number, ox: number, oy: number) => {
     const clamped = Math.min(6, Math.max(1, newScale));
@@ -121,11 +128,14 @@ const ImageZoomViewer: React.FC<{ src: string; onClose: () => void }> = ({ src, 
 
   return (
     <div
+      role="dialog"
+      aria-label="画像拡大表示"
       className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
       onClick={handleBackdropClick}
     >
       {/* 閉じるボタン */}
       <button
+        aria-label="閉じる"
         className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center text-xl leading-none backdrop-blur-sm transition-colors"
         onClick={e => { e.stopPropagation(); onClose(); }}
       >
@@ -218,6 +228,7 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
       <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-slate-100 p-4 sticky top-0 z-20">
         <div className="flex justify-between items-center">
           <button
+            aria-label="戻る"
             onClick={onBack}
             className="p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
           >
@@ -317,6 +328,7 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
             {actionButtons.map((btn, i) => (
               <button
                 key={i}
+                aria-label={btn.label}
                 onClick={btn.action}
                 disabled={btn.disabled}
                 className={`flex flex-col items-center gap-2 group ${btn.disabled ? 'opacity-30 pointer-events-none' : ''}`}

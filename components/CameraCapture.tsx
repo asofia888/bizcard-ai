@@ -139,6 +139,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
       {/* 閉じるボタン */}
       <button
+        aria-label="閉じる"
         onClick={onClose}
         className="absolute top-4 right-4 text-white bg-black/50 p-2 rounded-full z-20 hover:bg-black/70"
       >
@@ -203,6 +204,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
             </label>
 
             <button
+              aria-label="撮影"
               onClick={takePhoto}
               disabled={!videoReady}
               className="pointer-events-auto w-20 h-20 rounded-full border-4 border-white flex items-center justify-center bg-white/20 active:bg-white/40 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
