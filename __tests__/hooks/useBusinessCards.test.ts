@@ -84,8 +84,8 @@ describe('useBusinessCards', () => {
     expect(lines.length).toBeGreaterThan(1);
     const dataRow = lines[1];
     const fields = dataRow.match(/"[^"]*(?:""[^"]*)*"/g) || [];
-    // 11 fields: ID, name, company, title, country, email, phone, website, address, note, createdAt
-    expect(fields.length).toBe(11);
+    // 12 fields: ID, 氏名, 会社名, 役職, 国, メール, 電話番号, Webサイト, 住所, メモ, タグ, 作成日
+    expect(fields.length).toBe(12);
   });
 
   it('escapes double quotes by doubling them in CSV export', () => {

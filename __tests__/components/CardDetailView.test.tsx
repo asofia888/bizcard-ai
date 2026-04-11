@@ -14,7 +14,9 @@ const fullCard: BusinessCard = {
   website: 'https://test.com',
   address: '東京都渋谷区1-2-3',
   note: 'テストメモ',
+  tags: [],
   imageUri: null,
+  imageUriBack: null,
   createdAt: Date.now(),
 };
 
@@ -46,9 +48,9 @@ const defaultProps = {
 function getActionButton(label: string): HTMLButtonElement {
   // Action buttons have a span with the label and are inside a grid
   const allMatches = screen.getAllByText(label);
-  // The action button's label is inside a <span> with class "text-xs font-medium"
+  // The action button's label is inside a <span> with class "text-xs font-semibold"
   const actionSpan = allMatches.find(
-    el => el.tagName === 'SPAN' && el.className.includes('font-medium')
+    el => el.tagName === 'SPAN' && el.className.includes('font-semibold')
   );
   return actionSpan!.closest('button')!;
 }
@@ -59,12 +61,12 @@ beforeEach(() => {
 });
 
 describe('CardDetailView', () => {
-  it('disables phone button and applies opacity-40 when phone is empty', () => {
+  it('disables phone button and applies opacity-30 when phone is empty', () => {
     render(<CardDetailView card={noPhoneCard} {...defaultProps} />);
 
     const phoneButton = getActionButton('電話');
     expect(phoneButton).toBeDisabled();
-    expect(phoneButton.className).toContain('opacity-40');
+    expect(phoneButton.className).toContain('opacity-30');
   });
 
   it('disables email button when email is empty', () => {

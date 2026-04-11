@@ -8,9 +8,10 @@ export interface BusinessCard {
   phone: string;
   website: string;
   address: string;
-  note: string; // Added note field
+  note: string;
   tags: string[];
-  imageUri: string | null; // Base64 or URL
+  imageUri: string | null;     // 表面 Base64 or URL
+  imageUriBack: string | null; // 裏面 Base64 or URL
   createdAt: number;
 }
 

@@ -17,23 +17,26 @@ const INITIAL_CARDS: BusinessCard[] = [
     note: '2024年の展示会で名刺交換。DX推進担当。',
     tags: ['展示会', '重要'],
     imageUri: null,
+    imageUriBack: null,
     createdAt: Date.now()
   }
 ];
 
-/** localStorage からカードメタデータを読み込む（imageUri は null で返る） */
+/** localStorage からカードメタデータを読み込む（imageUri / imageUriBack は null で返る） */
 function loadMetadata(): BusinessCard[] {
   try {
     const saved = localStorage.getItem('bizcard_data');
-    return saved ? JSON.parse(saved) : INITIAL_CARDS;
+    const cards = saved ? JSON.parse(saved) : INITIAL_CARDS;
+    // imageUriBack がない旧データを正規化
+    return cards.map((c: any) => ({ imageUriBack: null, ...c }));
   } catch {
     return INITIAL_CARDS;
   }
 }
 
-/** localStorage にメタデータのみ保存（imageUri は除外） */
+/** localStorage にメタデータのみ保存（画像データは除外） */
 function saveMetadata(cards: BusinessCard[], key = 'bizcard_data'): void {
-  const metadata = cards.map(c => ({ ...c, imageUri: null }));
+  const metadata = cards.map(c => ({ ...c, imageUri: null, imageUriBack: null }));
   localStorage.setItem(key, JSON.stringify(metadata));
 }
 
@@ -80,7 +83,8 @@ export const useBusinessCards = () => {
         const images = await getAllImages();
         const cardsWithImages = metadata.map(c => ({
           ...c,
-          imageUri: images[c.id] ?? null,
+          imageUri:     images[c.id]           ?? null,
+          imageUriBack: images[c.id + '_back'] ?? null,
         }));
 
         initializedRef.current = true;
@@ -128,6 +132,11 @@ export const useBusinessCards = () => {
         console.error('Failed to save image to IndexedDB:', e)
       );
     }
+    if (card.imageUriBack) {
+      saveImage(card.id + '_back', card.imageUriBack).catch(e =>
+        console.error('Failed to save back image to IndexedDB:', e)
+      );
+    }
     setCards(prev => [card, ...prev]);
   };
 
@@ -135,6 +144,11 @@ export const useBusinessCards = () => {
     if (updatedCard.imageUri) {
       saveImage(updatedCard.id, updatedCard.imageUri).catch(e =>
         console.error('Failed to save image to IndexedDB:', e)
+      );
+    }
+    if (updatedCard.imageUriBack) {
+      saveImage(updatedCard.id + '_back', updatedCard.imageUriBack).catch(e =>
+        console.error('Failed to save back image to IndexedDB:', e)
       );
     }
     setCards(prev => prev.map(c => c.id === updatedCard.id ? updatedCard : c));
@@ -146,6 +160,7 @@ export const useBusinessCards = () => {
       deleteImage(id).catch(e =>
         console.error('Failed to delete image from IndexedDB:', e)
       );
+      deleteImage(id + '_back').catch(() => { /* 裏面がない場合は無視 */ });
       setCards(prev => prev.filter(c => c.id !== id));
       return true;
     }
@@ -161,7 +176,8 @@ export const useBusinessCards = () => {
         exportedAt: Date.now(),
         cards: cards.map(c => ({
           ...c,
-          imageUri: images[c.id] ?? null,
+          imageUri:     images[c.id]           ?? null,
+          imageUriBack: images[c.id + '_back'] ?? null,
         })),
       };
       const blob = new Blob([JSON.stringify(backupData)], { type: 'application/json;charset=utf-8' });
@@ -219,22 +235,29 @@ export const useBusinessCards = () => {
         throw new Error('Invalid backup format');
       }
 
-      // 画像を IndexedDB に保存
+      // 画像を IndexedDB に保存（表面・裏面）
       const imageCards = cardsData.filter(
         c => c.imageUri && typeof c.imageUri === 'string' && c.imageUri.startsWith('data:')
       );
       if (imageCards.length > 0) {
         await Promise.all(imageCards.map(c => saveImage(c.id, c.imageUri as string)));
       }
+      const backImageCards = cardsData.filter(
+        (c: any) => c.imageUriBack && typeof c.imageUriBack === 'string' && c.imageUriBack.startsWith('data:')
+      );
+      if (backImageCards.length > 0) {
+        await Promise.all(backImageCards.map((c: any) => saveImage(c.id + '_back', c.imageUriBack as string)));
+      }
 
       // メタデータを localStorage に保存
       saveMetadata(cardsData);
 
-      // IndexedDB から全画像をマージ
+      // IndexedDB から全画像をマージ（表面・裏面）
       const images = await getAllImages();
       const cardsWithImages = cardsData.map(c => ({
         ...c,
-        imageUri: images[c.id] ?? null,
+        imageUri:     images[c.id]           ?? null,
+        imageUriBack: images[c.id + '_back'] ?? (c as any).imageUriBack ?? null,
       }));
 
       setCards(cardsWithImages);
