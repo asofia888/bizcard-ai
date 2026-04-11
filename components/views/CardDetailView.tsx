@@ -185,7 +185,10 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
     },
     {
       icon: <GlobeIcon />, label: 'Web',
-      action: () => window.open(card.website.startsWith('http') ? card.website : `https://${card.website}`, '_blank'),
+      action: () => {
+        const raw = card.website.startsWith('http') ? card.website : `https://${card.website}`;
+        try { const u = new URL(raw); if (u.protocol === 'http:' || u.protocol === 'https:') window.open(raw, '_blank'); } catch { /* invalid URL */ }
+      },
       disabled: !card.website,
       bg: 'bg-violet-100 text-violet-600 group-hover:bg-violet-500 group-hover:text-white',
     },
