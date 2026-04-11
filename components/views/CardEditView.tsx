@@ -1,23 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { BusinessCard, ExtractionStatus } from '../../types';
-import { ArrowLeftIcon, CheckIcon } from '../Icons';
+import { ArrowLeftIcon, CheckIcon, CameraIcon } from '../Icons';
 import { useDialog } from '../Dialog';
 
 interface CardEditViewProps {
   initialData: Partial<BusinessCard>;
   status: ExtractionStatus;
   tempImage: string | null;
+  tempImageBack: string | null;
   onSave: (card: BusinessCard) => void;
   onCancel: () => void;
+  onScanBack: () => void;
 }
 
 export const CardEditView: React.FC<CardEditViewProps> = ({
   initialData,
   status,
   tempImage,
+  tempImageBack,
   onSave,
-  onCancel
+  onCancel,
+  onScanBack,
 }) => {
   const { showToast } = useDialog();
   const [formData, setFormData] = useState<Partial<BusinessCard>>(initialData);
@@ -47,6 +51,7 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
       note: formData.note || '',
       tags: formData.tags || [],
       imageUri: formData.imageUri || null,
+      imageUriBack: formData.imageUriBack ?? null,
       createdAt: formData.createdAt || Date.now(),
     };
 
@@ -110,8 +115,8 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
       <div className="flex-1 overflow-y-auto p-4 pb-24 no-scrollbar">
         <div className="space-y-4">
           {status === ExtractionStatus.PROCESSING && (
-            <div className="bg-blue-50 text-blue-800 p-4 rounded-2xl flex items-center gap-3 border border-blue-100">
-              <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
+            <div className="bg-brand-50 text-brand-800 p-4 rounded-2xl flex items-center gap-3 border border-brand-100">
+              <div className="w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full animate-spin flex-shrink-0"></div>
               <span className="font-semibold text-sm">AIが名刺を解析中...</span>
             </div>
           )}
@@ -124,20 +129,51 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
           )}
 
           {tempImage && (
-            /* 名刺比率(91:55)でプレビュー表示 */
+            /* 表面プレビュー（名刺比率 91:55） */
             <div
               className="w-full rounded-2xl overflow-hidden shadow-md bg-slate-900 relative"
               style={{ aspectRatio: '91/55' }}
             >
-              <img src={tempImage} alt="Preview" className="w-full h-full object-contain" />
+              <img src={tempImage} alt="表面プレビュー" className="w-full h-full object-contain" />
               <div className="absolute bottom-2 left-0 right-0 flex justify-center">
                 <p className="text-white text-[11px] bg-black/50 px-3 py-0.5 rounded-full backdrop-blur-sm">
                   {status === ExtractionStatus.SUCCESS && (formData as any).rotation
                     ? `自動回転: ${(formData as any).rotation}°`
-                    : 'プレビュー'}
+                    : '表面'}
                 </p>
               </div>
             </div>
+          )}
+
+          {/* 裏面スキャンセクション */}
+          {tempImageBack ? (
+            <>
+              <div
+                className="w-full rounded-2xl overflow-hidden shadow-md bg-slate-900 relative"
+                style={{ aspectRatio: '91/55' }}
+              >
+                <img src={tempImageBack} alt="裏面プレビュー" className="w-full h-full object-contain" />
+                <div className="absolute bottom-2 left-0 right-0 flex justify-center">
+                  <p className="text-white text-[11px] bg-black/50 px-3 py-0.5 rounded-full backdrop-blur-sm">裏面</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onScanBack}
+                className="w-full py-3 text-sm font-semibold text-slate-500 hover:bg-slate-100 rounded-2xl border border-slate-200 transition-colors flex items-center justify-center gap-2"
+              >
+                <CameraIcon className="w-4 h-4" /> 裏面を再撮影
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={onScanBack}
+              className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 hover:border-brand-300 hover:text-brand-500 hover:bg-brand-50 transition-all flex flex-col items-center gap-1.5"
+            >
+              <CameraIcon className="w-6 h-6" />
+              <span className="text-sm font-semibold">裏面を撮影する（任意）</span>
+            </button>
           )}
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
@@ -169,13 +205,13 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
               {(formData.tags || []).map(tag => (
                 <span
                   key={tag}
-                  className="inline-flex items-center gap-1 bg-blue-50 text-blue-600 text-xs font-semibold px-2.5 py-1 rounded-lg"
+                  className="inline-flex items-center gap-1 bg-brand-50 text-brand-500 text-xs font-semibold px-2.5 py-1 rounded-lg"
                 >
                   {tag}
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); removeTag(tag); }}
-                    className="text-blue-400 hover:text-blue-700 leading-none"
+                    className="text-brand-400 hover:text-brand-700 leading-none"
                   >
                     ×
                   </button>
@@ -208,7 +244,7 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
 
           <button
             onClick={handleSave}
-            className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-extrabold py-4 rounded-2xl shadow-lg shadow-blue-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            className="w-full bg-gradient-to-r from-brand-500 to-brand-700 hover:from-brand-600 hover:to-brand-800 text-white font-extrabold py-4 rounded-2xl shadow-lg shadow-brand-200 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
           >
             <CheckIcon className="w-5 h-5" /> 保存する
           </button>

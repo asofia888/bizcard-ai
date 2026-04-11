@@ -148,7 +148,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
       {error ? (
         <div className="flex-1 flex flex-col items-center justify-center text-white p-6 text-center gap-4">
           <p className="text-lg">{error}</p>
-          <label className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-full cursor-pointer flex items-center gap-2">
+          <label className="bg-brand-500 hover:bg-brand-600 text-white px-6 py-3 rounded-full cursor-pointer flex items-center gap-2">
             <UploadIcon className="w-5 h-5" />
             <span>画像をアップロード</span>
             <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />

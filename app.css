@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand-50: #eaeff8;
+  --color-brand-100: #c8d5ed;
+  --color-brand-200: #a3b8e1;
+  --color-brand-300: #7d9bd5;
+  --color-brand-400: #4d76c7;
+  --color-brand-500: #0e4cb7;
+  --color-brand-600: #0b3d95;
+  --color-brand-700: #082f73;
+  --color-brand-800: #062256;
+  --color-brand-900: #031539;
+}
+
 @utility no-scrollbar {
   &::-webkit-scrollbar {
     display: none;

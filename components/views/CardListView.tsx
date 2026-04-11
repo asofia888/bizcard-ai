@@ -10,12 +10,12 @@ interface CardListViewProps {
 }
 
 const CARD_GRADIENTS = [
-  { from: 'from-violet-600', to: 'to-purple-700' },
-  { from: 'from-blue-600',   to: 'to-indigo-700' },
-  { from: 'from-emerald-600',to: 'to-teal-700'   },
-  { from: 'from-orange-500', to: 'to-amber-600'  },
-  { from: 'from-pink-600',   to: 'to-rose-700'   },
-  { from: 'from-cyan-600',   to: 'to-sky-700'    },
+  { from: 'from-brand-500', to: 'to-brand-700' },
+  { from: 'from-brand-400', to: 'to-brand-600' },
+  { from: 'from-brand-600', to: 'to-brand-800' },
+  { from: 'from-brand-300', to: 'to-brand-500' },
+  { from: 'from-brand-500', to: 'to-brand-800' },
+  { from: 'from-brand-400', to: 'to-brand-700' },
 ];
 
 function cardGradient(name: string) {
@@ -59,7 +59,7 @@ const ListItem: React.FC<{ card: BusinessCard; onSelect: (card: BusinessCard) =>
             <span className="text-[10px] font-semibold bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-md flex-shrink-0">{card.country}</span>
           )}
         </div>
-        <p className="text-xs text-blue-600 font-semibold truncate leading-tight">{card.company}</p>
+        <p className="text-xs text-brand-500 font-semibold truncate leading-tight">{card.company}</p>
         {card.title && <p className="text-xs text-slate-400 truncate leading-tight mt-0.5">{card.title}</p>}
       </div>
       <svg className="w-4 h-4 text-slate-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -144,11 +144,11 @@ export const CardListView: React.FC<CardListViewProps> = ({
       <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-slate-100 p-4 sticky top-0 z-20">
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 text-blue-600">
+            <div className="w-8 h-8 text-brand-500">
               <LogoIcon className="w-full h-full" />
             </div>
             <div>
-              <h1 className="text-lg font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent leading-tight">
+              <h1 className="text-lg font-extrabold bg-gradient-to-r from-brand-500 to-brand-700 bg-clip-text text-transparent leading-tight">
                 BizCard AI
               </h1>
               {cards.length > 0 && (
@@ -171,7 +171,7 @@ export const CardListView: React.FC<CardListViewProps> = ({
             placeholder="氏名、会社名、タグで検索..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-100 pl-9 pr-4 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm placeholder-slate-400"
+            className="w-full bg-slate-100 pl-9 pr-4 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 focus:bg-white transition-all text-sm placeholder-slate-400"
           />
         </div>
 
@@ -183,7 +183,7 @@ export const CardListView: React.FC<CardListViewProps> = ({
                 onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
                 className={`flex-shrink-0 text-xs font-semibold px-2.5 py-1 rounded-lg transition-all ${
                   selectedTag === tag
-                    ? 'bg-indigo-500 text-white shadow-sm'
+                    ? 'bg-brand-500 text-white shadow-sm'
                     : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                 }`}
               >
@@ -205,7 +205,7 @@ export const CardListView: React.FC<CardListViewProps> = ({
                   onClick={() => setGroupBy(mode)}
                   className={`flex-1 py-1.5 text-[10px] sm:text-xs font-bold rounded-lg transition-all truncate px-1 ${
                     groupBy === mode
-                      ? 'bg-white text-blue-600 shadow-sm'
+                      ? 'bg-white text-brand-500 shadow-sm'
                       : 'text-slate-500 hover:text-slate-700'
                   }`}
                 >
@@ -216,7 +216,7 @@ export const CardListView: React.FC<CardListViewProps> = ({
             <select
               value={sortBy}
               onChange={e => setSortBy(e.target.value as typeof sortBy)}
-              className="flex-shrink-0 text-[10px] font-bold text-slate-600 bg-slate-100 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              className="flex-shrink-0 text-[10px] font-bold text-slate-600 bg-slate-100 rounded-xl px-2 py-2 focus:outline-none focus:ring-2 focus:ring-brand-400 cursor-pointer"
             >
               <option value="NEWEST">新しい順</option>
               <option value="OLDEST">古い順</option>
@@ -227,8 +227,8 @@ export const CardListView: React.FC<CardListViewProps> = ({
 
           {sortedFilteredCards.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-center mt-4">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-3xl flex items-center justify-center mb-4 shadow-inner">
-                <CameraIcon className="w-9 h-9 text-blue-400" />
+              <div className="w-20 h-20 bg-gradient-to-br from-brand-50 to-brand-100 rounded-3xl flex items-center justify-center mb-4 shadow-inner">
+                <CameraIcon className="w-9 h-9 text-brand-400" />
               </div>
               <p className="font-semibold text-slate-600 mb-1">
                 {searchQuery || selectedTag ? '名刺が見つかりません' : 'まだ名刺がありません'}
@@ -248,7 +248,7 @@ export const CardListView: React.FC<CardListViewProps> = ({
               <div key={group}>
                 <div className="flex items-center justify-between py-2 px-1 mb-2">
                   <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-widest">{group}</h3>
-                  <span className="bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                  <span className="bg-brand-100 text-brand-600 px-2 py-0.5 rounded-full text-[10px] font-bold">
                     {groupedCards![group].length}
                   </span>
                 </div>
@@ -265,7 +265,7 @@ export const CardListView: React.FC<CardListViewProps> = ({
 
       <button
         onClick={onAddCard}
-        className="absolute bottom-6 right-6 w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-2xl shadow-xl shadow-blue-300 flex items-center justify-center active:scale-90 transition-all z-30"
+        className="absolute bottom-6 right-6 w-14 h-14 bg-gradient-to-br from-brand-500 to-brand-700 hover:from-brand-600 hover:to-brand-800 text-white rounded-2xl shadow-xl shadow-brand-300 flex items-center justify-center active:scale-90 transition-all z-30"
       >
         <PlusIcon className="w-7 h-7" />
       </button>

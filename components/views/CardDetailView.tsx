@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { BusinessCard } from '../../types';
 import {
-  ArrowLeftIcon, TrashIcon, PhoneIcon, MailIcon, GlobeIcon, MapPinIcon, FileTextIcon
+  ArrowLeftIcon, TrashIcon, PhoneIcon, MailIcon, GlobeIcon, MapPinIcon, FileTextIcon, UserPlusIcon
 } from '../Icons';
+import { exportVCard } from '../../utils/vcardUtils';
 
 interface CardDetailViewProps {
   card: BusinessCard;
@@ -12,12 +13,12 @@ interface CardDetailViewProps {
 }
 
 const AVATAR_GRADIENTS = [
-  'from-violet-500 to-purple-600',
-  'from-blue-500 to-indigo-600',
-  'from-emerald-500 to-teal-600',
-  'from-orange-500 to-amber-600',
-  'from-pink-500 to-rose-600',
-  'from-cyan-500 to-sky-600',
+  'from-brand-500 to-brand-700',
+  'from-brand-400 to-brand-600',
+  'from-brand-600 to-brand-800',
+  'from-brand-300 to-brand-500',
+  'from-brand-500 to-brand-800',
+  'from-brand-400 to-brand-700',
 ];
 
 function avatarGradient(name: string): string {
@@ -165,6 +166,9 @@ const ImageZoomViewer: React.FC<{ src: string; onClose: () => void }> = ({ src, 
 export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, onEdit, onDelete }) => {
   const gradient = avatarGradient(card.name || card.company);
   const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const [activeSide, setActiveSide] = useState<'FRONT' | 'BACK'>('FRONT');
+
+  const activeImage = activeSide === 'BACK' ? card.imageUriBack : card.imageUri;
 
   const actionButtons = [
     {
@@ -177,7 +181,7 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
       icon: <MailIcon />, label: 'メール',
       action: () => window.open(`mailto:${card.email}`),
       disabled: !card.email,
-      bg: 'bg-blue-100 text-blue-600 group-hover:bg-blue-500 group-hover:text-white',
+      bg: 'bg-brand-100 text-brand-600 group-hover:bg-brand-500 group-hover:text-white',
     },
     {
       icon: <GlobeIcon />, label: 'Web',
@@ -194,7 +198,7 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
   ];
 
   const infoItems = [
-    { label: 'メール', val: card.email, icon: <MailIcon className="w-4 h-4" />, iconBg: 'bg-blue-50 text-blue-500' },
+    { label: 'メール', val: card.email, icon: <MailIcon className="w-4 h-4" />, iconBg: 'bg-brand-50 text-brand-500' },
     { label: '電話番号', val: card.phone, icon: <PhoneIcon className="w-4 h-4" />, iconBg: 'bg-emerald-50 text-emerald-500' },
     { label: '住所', val: card.address, icon: <MapPinIcon className="w-4 h-4" />, iconBg: 'bg-orange-50 text-orange-500' },
     { label: '国', val: card.country, icon: <GlobeIcon className="w-4 h-4" />, iconBg: 'bg-violet-50 text-violet-500' },
@@ -204,8 +208,8 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
   return (
     <>
       {/* ピンチズームオーバーレイ */}
-      {isZoomOpen && card.imageUri && (
-        <ImageZoomViewer src={card.imageUri} onClose={() => setIsZoomOpen(false)} />
+      {isZoomOpen && activeImage && (
+        <ImageZoomViewer src={activeImage} onClose={() => setIsZoomOpen(false)} />
       )}
 
       <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-slate-100 p-4 sticky top-0 z-20">
@@ -218,7 +222,7 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
           </button>
           <button
             onClick={() => onEdit(card)}
-            className="text-blue-600 font-bold text-sm bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition-colors"
+            className="text-brand-500 font-bold text-sm bg-brand-50 hover:bg-brand-100 px-4 py-2 rounded-xl transition-colors"
           >
             編集
           </button>
@@ -232,13 +236,31 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
             {card.imageUri ? (
               /* 名刺画像を名刺比率(91:55)で表示 — タップでズームオープン */
               <div className="p-3 bg-slate-100">
+                {/* 表面/裏面タブ（裏面がある場合のみ表示） */}
+                {card.imageUriBack && (
+                  <div className="flex bg-slate-200 p-0.5 rounded-xl mb-2">
+                    {(['FRONT', 'BACK'] as const).map(side => (
+                      <button
+                        key={side}
+                        onClick={() => setActiveSide(side)}
+                        className={`flex-1 py-1.5 text-xs font-bold rounded-[10px] transition-all ${
+                          activeSide === side
+                            ? 'bg-white text-slate-800 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        {side === 'FRONT' ? '表面' : '裏面'}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div
                   className="w-full rounded-xl overflow-hidden shadow-md cursor-zoom-in active:opacity-90 transition-opacity"
                   style={{ aspectRatio: '91/55' }}
-                  onClick={() => setIsZoomOpen(true)}
+                  onClick={() => activeImage && setIsZoomOpen(true)}
                 >
                   <img
-                    src={card.imageUri}
+                    src={activeImage ?? ''}
                     className="w-full h-full object-cover"
                     alt="名刺（タップで拡大）"
                   />
@@ -265,19 +287,19 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
               )}
               <div className={`${card.imageUri ? '' : 'mt-3'} text-center`}>
                 <h2 className="text-2xl font-extrabold text-slate-900 leading-tight">{card.name || '—'}</h2>
-                <p className="text-blue-600 font-bold text-sm mt-1">{card.company}</p>
+                <p className="text-brand-500 font-bold text-sm mt-1">{card.company}</p>
                 <div className="flex justify-center gap-2 mt-2 flex-wrap">
                   {card.title && (
                     <span className="text-xs bg-slate-100 text-slate-500 px-2.5 py-1 rounded-lg font-medium">{card.title}</span>
                   )}
                   {card.country && (
-                    <span className="text-xs font-semibold bg-blue-50 text-blue-500 px-2.5 py-1 rounded-lg">{card.country}</span>
+                    <span className="text-xs font-semibold bg-brand-50 text-brand-500 px-2.5 py-1 rounded-lg">{card.country}</span>
                   )}
                 </div>
                 {(card.tags || []).length > 0 && (
                   <div className="flex justify-center flex-wrap gap-1.5 mt-3">
                     {card.tags.map(tag => (
-                      <span key={tag} className="text-xs font-semibold bg-indigo-50 text-indigo-500 px-2.5 py-1 rounded-lg">
+                      <span key={tag} className="text-xs font-semibold bg-brand-50 text-brand-500 px-2.5 py-1 rounded-lg">
                         #{tag}
                       </span>
                     ))}
@@ -303,6 +325,15 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
               </button>
             ))}
           </div>
+
+          {/* ── vCard エクスポート ── */}
+          <button
+            onClick={() => exportVCard(card)}
+            className="w-full py-3.5 bg-teal-500 hover:bg-teal-600 active:bg-teal-700 text-white font-bold rounded-2xl transition-colors flex items-center justify-center gap-2 shadow-sm"
+          >
+            <UserPlusIcon className="w-5 h-5" />
+            連絡先に保存 (.vcf)
+          </button>
 
           {/* ── Info List ── */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
