@@ -8,6 +8,7 @@ import { useBusinessCards } from './hooks/useBusinessCards';
 import { BusinessCard, ViewState, ExtractionStatus } from './types';
 import { DialogProvider } from './components/Dialog';
 import { PageTransition } from './components/PageTransition';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Views
 import { CardListView } from './components/views/CardListView';
@@ -58,6 +59,7 @@ export default function App() {
   const [tempImageBack, setTempImageBack] = useState<string | null>(null);
   const [cameraMode, setCameraMode] = useState<'FRONT' | 'BACK'>('FRONT');
   const [status, setStatus] = useState<ExtractionStatus>(ExtractionStatus.IDLE);
+  const [extractError, setExtractError] = useState<string>('');
   const [editInitialData, setEditInitialData] = useState<Partial<BusinessCard>>({});
 
   // --- Handlers ---
@@ -72,6 +74,7 @@ export default function App() {
   const handleCapture = async (imageData: string) => {
     setTempImage(imageData);
     setStatus(ExtractionStatus.PROCESSING);
+    setExtractError('');
 
     // Prepare initial data for Edit View
     setEditInitialData({
@@ -86,7 +89,7 @@ export default function App() {
       const extracted = await extractCardData(imageData);
       if (extracted) {
         let finalImage = imageData;
-        
+
         // Auto-rotation logic
         if (extracted.rotation && extracted.rotation !== 0) {
            try {
@@ -97,18 +100,20 @@ export default function App() {
            }
         }
 
-        setEditInitialData(prev => ({ 
-          ...prev, 
-          ...extracted, 
-          imageUri: finalImage 
+        setEditInitialData(prev => ({
+          ...prev,
+          ...extracted,
+          imageUri: finalImage
         }));
         setStatus(ExtractionStatus.SUCCESS);
       } else {
         setStatus(ExtractionStatus.ERROR);
+        setExtractError('AI解析に失敗しました。手動で入力してください。');
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
       setStatus(ExtractionStatus.ERROR);
+      setExtractError(e.message || 'AI解析に失敗しました。手動で入力してください。');
     }
   };
 
@@ -161,6 +166,7 @@ export default function App() {
   // --- Render ---
 
   return (
+    <ErrorBoundary>
     <DialogProvider>
     <div className="h-screen bg-slate-50 flex flex-col font-sans max-w-md mx-auto shadow-2xl overflow-hidden relative">
 
@@ -204,6 +210,7 @@ export default function App() {
             <CardEditView
                 initialData={editInitialData}
                 status={status}
+                errorMessage={extractError}
                 tempImage={tempImage}
                 tempImageBack={tempImageBack}
                 onSave={handleSaveFromEdit}
@@ -229,5 +236,6 @@ export default function App() {
 
     </div>
     </DialogProvider>
+    </ErrorBoundary>
   );
 }

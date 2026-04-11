@@ -7,6 +7,7 @@ import { useDialog } from '../Dialog';
 interface CardEditViewProps {
   initialData: Partial<BusinessCard>;
   status: ExtractionStatus;
+  errorMessage?: string;
   tempImage: string | null;
   tempImageBack: string | null;
   onSave: (card: BusinessCard) => void;
@@ -17,6 +18,7 @@ interface CardEditViewProps {
 export const CardEditView: React.FC<CardEditViewProps> = ({
   initialData,
   status,
+  errorMessage,
   tempImage,
   tempImageBack,
   onSave,
@@ -125,7 +127,7 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
           {status === ExtractionStatus.ERROR && (
             <div className="bg-red-50 text-red-800 p-4 rounded-2xl flex items-center gap-3 border border-red-100">
               <span className="text-xl flex-shrink-0">⚠</span>
-              <span className="font-medium text-sm">AI解析に失敗しました。手動で入力してください。</span>
+              <span className="font-medium text-sm">{errorMessage || 'AI解析に失敗しました。手動で入力してください。'}</span>
             </div>
           )}
 
