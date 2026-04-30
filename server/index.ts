@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { extractCard, ExtractError } from '../services/extractCard';
+import { extractCard, ExtractError } from '../services/extractCard.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

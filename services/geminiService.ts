@@ -17,8 +17,12 @@ export const extractCardData = async (base64Image: string): Promise<any> => {
     });
 
     if (!response.ok) {
-      const err = await response.json().catch(() => ({ error: 'Server error' }));
-      throw new Error(err.error || `Server responded with ${response.status}`);
+      const err = await response.json().catch(() => null);
+      if (err?.error) throw new Error(err.error);
+      if (response.status === 413) throw new Error('画像サイズが大きすぎます。もう一度撮影してください。');
+      if (response.status === 504 || response.status === 524) throw new Error('AI解析がタイムアウトしました。もう一度お試しください。');
+      if (response.status >= 500) throw new Error(`サーバーエラー（${response.status}）。しばらく待って再試行してください。`);
+      throw new Error(`通信エラー（${response.status}）。もう一度お試しください。`);
     }
 
     return response.json();
