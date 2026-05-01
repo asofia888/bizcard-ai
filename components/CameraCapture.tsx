@@ -6,8 +6,8 @@ interface CameraCaptureProps {
   onClose: () => void;
 }
 
-const MAX_DIMENSION = 1500;
-const JPEG_QUALITY = 0.82;
+const MAX_DIMENSION = 2000;
+const JPEG_QUALITY = 0.88;
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 // 日本の名刺標準サイズ: 91mm × 55mm
 const CARD_ASPECT = 91 / 55;
@@ -27,8 +27,8 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: 'environment',
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
+            width: { ideal: 2560 },
+            height: { ideal: 1440 },
           },
           audio: false,
         });
