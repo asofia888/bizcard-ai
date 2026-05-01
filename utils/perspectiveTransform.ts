@@ -61,16 +61,32 @@ function computePerspectiveMatrix(src: Point[], dst: Point[]): number[] {
   return solve8x8(A, b);
 }
 
+// 角がフレームから少しはみ出している場合（推定値）も許容してクランプする
+const CORNER_OVERFLOW_TOLERANCE = 0.15;
+
 export function isValidCorners(c: unknown): c is Corners {
   if (!c || typeof c !== 'object') return false;
   const corners = c as Record<string, unknown>;
   for (const key of ['topLeft', 'topRight', 'bottomRight', 'bottomLeft']) {
     const p = corners[key] as { x?: unknown; y?: unknown } | undefined;
     if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') return false;
-    if (p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1) return false;
     if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return false;
+    const lo = -CORNER_OVERFLOW_TOLERANCE;
+    const hi = 1 + CORNER_OVERFLOW_TOLERANCE;
+    if (p.x < lo || p.x > hi || p.y < lo || p.y > hi) return false;
   }
   return true;
+}
+
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+
+export function normalizeCorners(c: Corners): Corners {
+  return {
+    topLeft:     { x: clamp01(c.topLeft.x),     y: clamp01(c.topLeft.y) },
+    topRight:    { x: clamp01(c.topRight.x),    y: clamp01(c.topRight.y) },
+    bottomRight: { x: clamp01(c.bottomRight.x), y: clamp01(c.bottomRight.y) },
+    bottomLeft:  { x: clamp01(c.bottomLeft.x),  y: clamp01(c.bottomLeft.y) },
+  };
 }
 
 export async function perspectiveCorrect(

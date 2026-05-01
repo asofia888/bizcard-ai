@@ -53,14 +53,21 @@ export async function extractCard(apiKey: string, base64Image: string): Promise<
 
 8. Return empty string "" for any field not found on the card.
 
-9. CARD CORNERS: Detect the four corners of the business card in the image.
+9. CARD CORNERS (CRITICAL — REQUIRED unless impossible):
+   Detect the four corners of the business card in the image.
    Return them as NORMALIZED coordinates (0.0–1.0) where (0,0) is the top-left
    of the image and (1,1) is the bottom-right. Use the orientation that makes
-   the card text UPRIGHT (so topLeft is the upper-left corner of the card as
-   read by a human, not the upper-left of the image).
-   - If the card fills nearly the entire image or its corners are unclear/cropped,
-     return null for the entire "corners" field.
-   - All four points must be inside [0,1].`,
+   the card text UPRIGHT — i.e. topLeft is the upper-left corner of the CARD
+   as a human reads it, not the upper-left of the image.
+   - ALWAYS try to return corners. The user wants to crop out the background
+     (table, desk, etc.) and see only the card as a clean rectangle.
+   - If a corner is slightly outside the visible frame (card edge cropped),
+     ESTIMATE its position from the visible edges. Values may be slightly
+     below 0 or above 1 (e.g. -0.05, 1.08) when extrapolating.
+   - Only return null for "corners" if the card is so distorted, blurred,
+     or fragmentary that no plausible quadrilateral can be inferred.
+   - The four points must form a convex quadrilateral in this order:
+     topLeft → topRight → bottomRight → bottomLeft (clockwise from card POV).`,
         },
       ],
     },

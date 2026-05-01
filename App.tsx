@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { CameraCapture } from './components/CameraCapture';
 import { extractCardData } from './services/geminiService';
 import { rotateImage } from './utils/imageUtils';
-import { perspectiveCorrect, isValidCorners } from './utils/perspectiveTransform';
+import { perspectiveCorrect, isValidCorners, normalizeCorners } from './utils/perspectiveTransform';
 import { useBusinessCards } from './hooks/useBusinessCards';
 import { BusinessCard, ViewState, ExtractionStatus } from './types';
 import { DialogProvider } from './components/Dialog';
@@ -93,14 +93,19 @@ export default function App() {
         let perspectiveApplied = false;
 
         // 4隅が信頼できる範囲で返ってきた場合は透視補正で長方形に整形
+        console.log('[BizCard] Gemini corners:', extracted.corners);
         if (isValidCorners(extracted.corners)) {
           try {
-            finalImage = await perspectiveCorrect(imageData, extracted.corners);
+            const clamped = normalizeCorners(extracted.corners);
+            finalImage = await perspectiveCorrect(imageData, clamped);
             setTempImage(finalImage);
             perspectiveApplied = true;
+            console.log('[BizCard] Perspective correction applied');
           } catch (e) {
-            console.error("Perspective correction failed", e);
+            console.error('[BizCard] Perspective correction failed', e);
           }
+        } else {
+          console.log('[BizCard] Skipped correction: corners invalid or null');
         }
 
         // 透視補正で向きも揃うため、フォールバック時のみ回転を適用
