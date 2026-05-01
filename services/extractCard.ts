@@ -53,21 +53,35 @@ export async function extractCard(apiKey: string, base64Image: string): Promise<
 
 8. Return empty string "" for any field not found on the card.
 
-9. CARD CORNERS (CRITICAL — REQUIRED unless impossible):
-   Detect the four corners of the business card in the image.
-   Return them as NORMALIZED coordinates (0.0–1.0) where (0,0) is the top-left
-   of the image and (1,1) is the bottom-right. Use the orientation that makes
-   the card text UPRIGHT — i.e. topLeft is the upper-left corner of the CARD
-   as a human reads it, not the upper-left of the image.
-   - ALWAYS try to return corners. The user wants to crop out the background
-     (table, desk, etc.) and see only the card as a clean rectangle.
-   - If a corner is slightly outside the visible frame (card edge cropped),
-     ESTIMATE its position from the visible edges. Values may be slightly
-     below 0 or above 1 (e.g. -0.05, 1.08) when extrapolating.
-   - Only return null for "corners" if the card is so distorted, blurred,
-     or fragmentary that no plausible quadrilateral can be inferred.
-   - The four points must form a convex quadrilateral in this order:
-     topLeft → topRight → bottomRight → bottomLeft (clockwise from card POV).`,
+9. CARD CORNERS (CRITICAL — read carefully):
+   Detect the FOUR PHYSICAL OUTER CORNERS of the business card paper itself —
+   the four points where the card's edges meet. NOT the corners of any logo,
+   QR code, photo, or text block ON the card.
+
+   Imagine you are tracing the outline of the rectangular paper with a pen.
+   The four corners are where you change direction. Those are the points to return.
+
+   Coordinate system:
+   - x = horizontal position in the image (0 = left edge, 1 = right edge)
+   - y = vertical position in the image (0 = top edge, 1 = bottom edge)
+   - Return NORMALIZED values (0.0–1.0) of the original image as captured.
+
+   Orientation:
+   - "topLeft" = the corner that, when the card is rotated upright for reading,
+      sits at its TOP-LEFT (the corner near the start of the first text line).
+   - Then go clockwise: topRight, bottomRight, bottomLeft.
+
+   Sanity check before returning:
+   - The four points should roughly enclose the WHOLE visible card paper.
+   - Typically the card occupies a large portion of the image, so corner
+     coordinates are usually near the image edges (e.g. TL≈(0.05, 0.10),
+     BR≈(0.95, 0.85)). Do NOT return tightly-packed coordinates around an
+     interior element.
+   - If a corner is slightly outside the frame (cropped), EXTRAPOLATE: values
+     may go to -0.05 or 1.08 etc.
+
+   Return null for "corners" ONLY if the card is unrecognizably distorted or
+   mostly out of frame. Otherwise ALWAYS return the four corners.`,
         },
       ],
     },

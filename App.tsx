@@ -93,10 +93,16 @@ export default function App() {
         let perspectiveApplied = false;
 
         // 4隅が信頼できる範囲で返ってきた場合は透視補正で長方形に整形
-        console.log('[BizCard] Gemini corners:', extracted.corners);
+        console.log('[BizCard] Gemini corners (raw):', JSON.stringify(extracted.corners));
         if (isValidCorners(extracted.corners)) {
           try {
             const clamped = normalizeCorners(extracted.corners);
+            console.log('[BizCard] Corners (clamped %):',
+              `TL(${(clamped.topLeft.x*100).toFixed(1)},${(clamped.topLeft.y*100).toFixed(1)}) ` +
+              `TR(${(clamped.topRight.x*100).toFixed(1)},${(clamped.topRight.y*100).toFixed(1)}) ` +
+              `BR(${(clamped.bottomRight.x*100).toFixed(1)},${(clamped.bottomRight.y*100).toFixed(1)}) ` +
+              `BL(${(clamped.bottomLeft.x*100).toFixed(1)},${(clamped.bottomLeft.y*100).toFixed(1)})`
+            );
             finalImage = await perspectiveCorrect(imageData, clamped);
             setTempImage(finalImage);
             perspectiveApplied = true;
