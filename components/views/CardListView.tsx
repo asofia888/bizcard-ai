@@ -249,7 +249,7 @@ export const CardListView: React.FC<CardListViewProps> = ({
 
       <button
         onClick={onAddCard}
-        className="absolute bottom-6 right-6 w-14 h-14 bg-gradient-to-br from-brand-500 to-brand-700 hover:from-brand-600 hover:to-brand-800 text-white rounded-2xl shadow-xl shadow-brand-300 flex items-center justify-center active:scale-90 transition-all z-30"
+        className="absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-6 w-14 h-14 bg-gradient-to-br from-brand-500 to-brand-700 hover:from-brand-600 hover:to-brand-800 text-white rounded-2xl shadow-xl shadow-brand-300 flex items-center justify-center active:scale-90 transition-all z-30"
       >
         <PlusIcon className="w-7 h-7" />
       </button>

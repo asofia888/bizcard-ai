@@ -194,7 +194,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
           </div>
 
           {/* 撮影ボタン・写真選択ボタン */}
-          <div className="absolute bottom-8 left-0 right-0 flex justify-center items-center gap-12 z-10">
+          <div className="absolute bottom-[calc(2rem+env(safe-area-inset-bottom))] left-0 right-0 flex justify-center items-center gap-12 z-10">
             <label className="text-white flex flex-col items-center gap-1.5 cursor-pointer opacity-80 hover:opacity-100 pointer-events-auto">
               <div className="w-12 h-12 rounded-full bg-slate-800/80 flex items-center justify-center border border-slate-600">
                 <UploadIcon className="w-6 h-6" />

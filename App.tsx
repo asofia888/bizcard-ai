@@ -168,7 +168,7 @@ export default function App() {
   return (
     <ErrorBoundary>
     <DialogProvider>
-    <div className="h-screen bg-slate-50 flex flex-col font-sans max-w-md mx-auto shadow-2xl overflow-hidden relative">
+    <div className="h-dvh bg-slate-50 flex flex-col font-sans max-w-md mx-auto shadow-2xl overflow-hidden relative">
 
       <AnimatePresence mode="wait" initial={false}>
         {view === 'LIST' && (
