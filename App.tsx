@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { CameraCapture } from './components/CameraCapture';
 import { extractCardData } from './services/geminiService';
 import { rotateImage } from './utils/imageUtils';
+import { perspectiveCorrect, isValidCorners } from './utils/perspectiveTransform';
 import { useBusinessCards } from './hooks/useBusinessCards';
 import { BusinessCard, ViewState, ExtractionStatus } from './types';
 import { DialogProvider } from './components/Dialog';
@@ -89,9 +90,21 @@ export default function App() {
       const extracted = await extractCardData(imageData);
       if (extracted) {
         let finalImage = imageData;
+        let perspectiveApplied = false;
 
-        // Auto-rotation logic
-        if (extracted.rotation && extracted.rotation !== 0) {
+        // 4隅が信頼できる範囲で返ってきた場合は透視補正で長方形に整形
+        if (isValidCorners(extracted.corners)) {
+          try {
+            finalImage = await perspectiveCorrect(imageData, extracted.corners);
+            setTempImage(finalImage);
+            perspectiveApplied = true;
+          } catch (e) {
+            console.error("Perspective correction failed", e);
+          }
+        }
+
+        // 透視補正で向きも揃うため、フォールバック時のみ回転を適用
+        if (!perspectiveApplied && extracted.rotation && extracted.rotation !== 0) {
            try {
              finalImage = await rotateImage(imageData, extracted.rotation);
              setTempImage(finalImage);
@@ -100,9 +113,11 @@ export default function App() {
            }
         }
 
+        // 保存するカードデータには corners を含めない（一時的な処理用情報）
+        const { corners: _corners, ...cardData } = extracted;
         setEditInitialData(prev => ({
           ...prev,
-          ...extracted,
+          ...cardData,
           imageUri: finalImage
         }));
         setStatus(ExtractionStatus.SUCCESS);

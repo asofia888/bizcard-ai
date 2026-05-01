@@ -51,7 +51,16 @@ export async function extractCard(apiKey: string, base64Image: string): Promise<
 
 7. Extract handwritten notes or uncategorized details into "note".
 
-8. Return empty string "" for any field not found on the card.`,
+8. Return empty string "" for any field not found on the card.
+
+9. CARD CORNERS: Detect the four corners of the business card in the image.
+   Return them as NORMALIZED coordinates (0.0–1.0) where (0,0) is the top-left
+   of the image and (1,1) is the bottom-right. Use the orientation that makes
+   the card text UPRIGHT (so topLeft is the upper-left corner of the card as
+   read by a human, not the upper-left of the image).
+   - If the card fills nearly the entire image or its corners are unclear/cropped,
+     return null for the entire "corners" field.
+   - All four points must be inside [0,1].`,
         },
       ],
     },
@@ -70,6 +79,18 @@ export async function extractCard(apiKey: string, base64Image: string): Promise<
           address: { type: Type.STRING, description: 'Address (住所)' },
           note: { type: Type.STRING, description: 'Handwritten notes or extra information (手書きメモや備考)' },
           rotation: { type: Type.INTEGER, description: 'Rotation angle in degrees to make text upright (e.g. 90, 180). 0 if upright.' },
+          corners: {
+            type: Type.OBJECT,
+            nullable: true,
+            description: 'Four corners of the card in normalized image coordinates (0..1), oriented so topLeft is the human-readable top-left of the card. Null if corners cannot be determined reliably.',
+            properties: {
+              topLeft:     { type: Type.OBJECT, properties: { x: { type: Type.NUMBER }, y: { type: Type.NUMBER } }, required: ['x', 'y'] },
+              topRight:    { type: Type.OBJECT, properties: { x: { type: Type.NUMBER }, y: { type: Type.NUMBER } }, required: ['x', 'y'] },
+              bottomRight: { type: Type.OBJECT, properties: { x: { type: Type.NUMBER }, y: { type: Type.NUMBER } }, required: ['x', 'y'] },
+              bottomLeft:  { type: Type.OBJECT, properties: { x: { type: Type.NUMBER }, y: { type: Type.NUMBER } }, required: ['x', 'y'] },
+            },
+            required: ['topLeft', 'topRight', 'bottomRight', 'bottomLeft'],
+          },
         },
         required: ['name', 'company'],
       },
