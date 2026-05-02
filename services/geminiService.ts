@@ -18,10 +18,13 @@ export const extractCardData = async (base64Image: string): Promise<any> => {
 
     if (!response.ok) {
       const err = await response.json().catch(() => null);
-      if (err?.error) throw new Error(err.error);
+      // サーバー側で日本語化済みのメッセージはそのまま使う
+      if (err?.error && !err.error.startsWith('{')) throw new Error(err.error);
       if (response.status === 413) throw new Error('画像サイズが大きすぎます。もう一度撮影してください。');
+      if (response.status === 429) throw new Error('AI解析の利用上限に達しました。しばらく時間をおいてから再度お試しください。');
       if (response.status === 504 || response.status === 524) throw new Error('AI解析がタイムアウトしました。もう一度お試しください。');
-      if (response.status >= 500) throw new Error(`サーバーエラー（${response.status}）。しばらく待って再試行してください。`);
+      if (response.status === 503) throw new Error('AIが混雑しています。30秒ほど待ってから再試行してください。');
+      if (response.status >= 500) throw new Error(`AIサーバーで一時的なエラーが発生しました（${response.status}）。しばらく待って再試行してください。`);
       throw new Error(`通信エラー（${response.status}）。もう一度お試しください。`);
     }
 

@@ -6,11 +6,23 @@ export class ExtractError extends Error {
   }
 }
 
+// Gemini SDK の生のエラーから HTTP ステータスを抽出する
+function extractStatusFromGeminiError(err: unknown): number | null {
+  const msg = err instanceof Error ? err.message : String(err);
+  const match = msg.match(/"code"\s*:\s*(\d{3})/);
+  if (match) return parseInt(match[1], 10);
+  const status = (err as { status?: unknown })?.status;
+  if (typeof status === 'number') return status;
+  return null;
+}
+
 export async function extractCard(apiKey: string, base64Image: string): Promise<Record<string, unknown>> {
   const ai = new GoogleGenAI({ apiKey });
   const cleanBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');
 
-  const response = await ai.models.generateContent({
+  let response;
+  try {
+    response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: {
       parts: [
@@ -75,6 +87,22 @@ export async function extractCard(apiKey: string, base64Image: string): Promise<
       },
     },
   });
+  } catch (err) {
+    const status = extractStatusFromGeminiError(err);
+    if (status === 429) {
+      throw new ExtractError('AI解析の利用上限に達しました。しばらく時間をおいてから再度お試しください。', 429);
+    }
+    if (status === 503) {
+      throw new ExtractError('AIが混雑しています。30秒ほど待ってから再試行してください。', 503);
+    }
+    if (status === 400) {
+      throw new ExtractError('画像の形式が正しくありません。もう一度撮影してください。', 400);
+    }
+    if (status && status >= 500) {
+      throw new ExtractError(`AIサーバーで一時的なエラーが発生しました（${status}）。`, status);
+    }
+    throw err;
+  }
 
   const text = response.text;
   if (!text) {
