@@ -15,7 +15,7 @@ export interface BusinessCard {
   createdAt: number;
 }
 
-export type ViewState = 'LIST' | 'CAMERA' | 'EDIT' | 'DETAIL' | 'SETTINGS';
+export type ViewState = 'LIST' | 'CAMERA' | 'ADJUST' | 'EDIT' | 'DETAIL' | 'SETTINGS';
 
 export enum ExtractionStatus {
   IDLE = 'IDLE',

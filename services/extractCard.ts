@@ -51,37 +51,7 @@ export async function extractCard(apiKey: string, base64Image: string): Promise<
 
 7. Extract handwritten notes or uncategorized details into "note".
 
-8. Return empty string "" for any field not found on the card.
-
-9. CARD CORNERS (CRITICAL — read carefully):
-   Detect the FOUR PHYSICAL OUTER CORNERS of the business card paper itself —
-   the four points where the card's edges meet. NOT the corners of any logo,
-   QR code, photo, or text block ON the card.
-
-   Imagine you are tracing the outline of the rectangular paper with a pen.
-   The four corners are where you change direction. Those are the points to return.
-
-   Coordinate system:
-   - x = horizontal position in the image (0 = left edge, 1 = right edge)
-   - y = vertical position in the image (0 = top edge, 1 = bottom edge)
-   - Return NORMALIZED values (0.0–1.0) of the original image as captured.
-
-   Orientation:
-   - "topLeft" = the corner that, when the card is rotated upright for reading,
-      sits at its TOP-LEFT (the corner near the start of the first text line).
-   - Then go clockwise: topRight, bottomRight, bottomLeft.
-
-   Sanity check before returning:
-   - The four points should roughly enclose the WHOLE visible card paper.
-   - Typically the card occupies a large portion of the image, so corner
-     coordinates are usually near the image edges (e.g. TL≈(0.05, 0.10),
-     BR≈(0.95, 0.85)). Do NOT return tightly-packed coordinates around an
-     interior element.
-   - If a corner is slightly outside the frame (cropped), EXTRAPOLATE: values
-     may go to -0.05 or 1.08 etc.
-
-   Return null for "corners" ONLY if the card is unrecognizably distorted or
-   mostly out of frame. Otherwise ALWAYS return the four corners.`,
+8. Return empty string "" for any field not found on the card.`,
         },
       ],
     },
@@ -100,18 +70,6 @@ export async function extractCard(apiKey: string, base64Image: string): Promise<
           address: { type: Type.STRING, description: 'Address (住所)' },
           note: { type: Type.STRING, description: 'Handwritten notes or extra information (手書きメモや備考)' },
           rotation: { type: Type.INTEGER, description: 'Rotation angle in degrees to make text upright (e.g. 90, 180). 0 if upright.' },
-          corners: {
-            type: Type.OBJECT,
-            nullable: true,
-            description: 'Four corners of the card in normalized image coordinates (0..1), oriented so topLeft is the human-readable top-left of the card. Null if corners cannot be determined reliably.',
-            properties: {
-              topLeft:     { type: Type.OBJECT, properties: { x: { type: Type.NUMBER }, y: { type: Type.NUMBER } }, required: ['x', 'y'] },
-              topRight:    { type: Type.OBJECT, properties: { x: { type: Type.NUMBER }, y: { type: Type.NUMBER } }, required: ['x', 'y'] },
-              bottomRight: { type: Type.OBJECT, properties: { x: { type: Type.NUMBER }, y: { type: Type.NUMBER } }, required: ['x', 'y'] },
-              bottomLeft:  { type: Type.OBJECT, properties: { x: { type: Type.NUMBER }, y: { type: Type.NUMBER } }, required: ['x', 'y'] },
-            },
-            required: ['topLeft', 'topRight', 'bottomRight', 'bottomLeft'],
-          },
         },
         required: ['name', 'company'],
       },

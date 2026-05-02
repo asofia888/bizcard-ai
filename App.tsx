@@ -4,7 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { CameraCapture } from './components/CameraCapture';
 import { extractCardData } from './services/geminiService';
 import { rotateImage } from './utils/imageUtils';
-import { perspectiveCorrect, isValidCorners, normalizeCorners } from './utils/perspectiveTransform';
+import { perspectiveCorrect, normalizeCorners } from './utils/perspectiveTransform';
+import type { Corners } from './utils/perspectiveTransform';
 import { useBusinessCards } from './hooks/useBusinessCards';
 import { BusinessCard, ViewState, ExtractionStatus } from './types';
 import { DialogProvider } from './components/Dialog';
@@ -16,14 +17,16 @@ import { CardListView } from './components/views/CardListView';
 import { CardDetailView } from './components/views/CardDetailView';
 import { CardEditView } from './components/views/CardEditView';
 import { SettingsView } from './components/views/SettingsView';
+import { CornerAdjustView } from './components/views/CornerAdjustView';
 
 // ビューの深さ: 数値が大きいほど「奥」。遷移方向の自動判定に使う
 const VIEW_DEPTH: Record<ViewState, number> = {
   LIST: 0,
   SETTINGS: 1,
   DETAIL: 1,
-  EDIT: 2,
-  CAMERA: 3,
+  ADJUST: 2,
+  EDIT: 3,
+  CAMERA: 4,
 };
 
 export default function App() {
@@ -59,29 +62,71 @@ export default function App() {
   const [tempImage, setTempImage] = useState<string | null>(null);
   const [tempImageBack, setTempImageBack] = useState<string | null>(null);
   const [cameraMode, setCameraMode] = useState<'FRONT' | 'BACK'>('FRONT');
+  const [adjustImage, setAdjustImage] = useState<string | null>(null);
   const [status, setStatus] = useState<ExtractionStatus>(ExtractionStatus.IDLE);
   const [extractError, setExtractError] = useState<string>('');
   const [editInitialData, setEditInitialData] = useState<Partial<BusinessCard>>({});
 
   // --- Handlers ---
 
-  const handleCaptureBack = (imageData: string) => {
+  // 撮影直後: 表面/裏面どちらも先に4隅調整画面へ
+  const handleCapture = (imageData: string) => {
+    setAdjustImage(imageData);
+    navigateTo('ADJUST');
+  };
+
+  // 4隅調整 → 透視補正後の画像で次の処理に進む
+  const handleAdjustApply = async (corners: Corners) => {
+    const source = adjustImage;
+    if (!source) return;
+    let corrected = source;
+    try {
+      corrected = await perspectiveCorrect(source, normalizeCorners(corners));
+    } catch (e) {
+      console.error('[BizCard] Perspective correction failed', e);
+    }
+    setAdjustImage(null);
+    if (cameraMode === 'BACK') {
+      finalizeBackCapture(corrected);
+    } else {
+      await processFrontCapture(corrected);
+    }
+  };
+
+  // スキップ: 元画像のまま次の処理に進む
+  const handleAdjustSkip = async () => {
+    const source = adjustImage;
+    if (!source) return;
+    setAdjustImage(null);
+    if (cameraMode === 'BACK') {
+      finalizeBackCapture(source);
+    } else {
+      await processFrontCapture(source);
+    }
+  };
+
+  // 撮り直し: カメラに戻る
+  const handleAdjustCancel = () => {
+    setAdjustImage(null);
+    navigateTo('CAMERA');
+  };
+
+  const finalizeBackCapture = (imageData: string) => {
     setCameraMode('FRONT');
     setTempImageBack(imageData);
     setEditInitialData(prev => ({ ...prev, imageUriBack: imageData }));
     navigateTo('EDIT');
   };
 
-  const handleCapture = async (imageData: string) => {
+  const processFrontCapture = async (imageData: string) => {
     setTempImage(imageData);
     setStatus(ExtractionStatus.PROCESSING);
     setExtractError('');
 
-    // Prepare initial data for Edit View
     setEditInitialData({
       id: uuidv4(),
       imageUri: imageData,
-      createdAt: Date.now()
+      createdAt: Date.now(),
     });
 
     navigateTo('EDIT');
@@ -90,46 +135,21 @@ export default function App() {
       const extracted = await extractCardData(imageData);
       if (extracted) {
         let finalImage = imageData;
-        let perspectiveApplied = false;
 
-        // 4隅が信頼できる範囲で返ってきた場合は透視補正で長方形に整形
-        console.log('[BizCard] Gemini corners (raw):', JSON.stringify(extracted.corners));
-        if (isValidCorners(extracted.corners)) {
+        // 透視補正をスキップしたケース等のため、回転は引き続きフォールバックとして適用
+        if (extracted.rotation && extracted.rotation !== 0) {
           try {
-            const clamped = normalizeCorners(extracted.corners);
-            console.log('[BizCard] Corners (clamped %):',
-              `TL(${(clamped.topLeft.x*100).toFixed(1)},${(clamped.topLeft.y*100).toFixed(1)}) ` +
-              `TR(${(clamped.topRight.x*100).toFixed(1)},${(clamped.topRight.y*100).toFixed(1)}) ` +
-              `BR(${(clamped.bottomRight.x*100).toFixed(1)},${(clamped.bottomRight.y*100).toFixed(1)}) ` +
-              `BL(${(clamped.bottomLeft.x*100).toFixed(1)},${(clamped.bottomLeft.y*100).toFixed(1)})`
-            );
-            finalImage = await perspectiveCorrect(imageData, clamped);
+            finalImage = await rotateImage(imageData, extracted.rotation);
             setTempImage(finalImage);
-            perspectiveApplied = true;
-            console.log('[BizCard] Perspective correction applied');
           } catch (e) {
-            console.error('[BizCard] Perspective correction failed', e);
+            console.error('Rotation failed', e);
           }
-        } else {
-          console.log('[BizCard] Skipped correction: corners invalid or null');
         }
 
-        // 透視補正で向きも揃うため、フォールバック時のみ回転を適用
-        if (!perspectiveApplied && extracted.rotation && extracted.rotation !== 0) {
-           try {
-             finalImage = await rotateImage(imageData, extracted.rotation);
-             setTempImage(finalImage);
-           } catch (e) {
-             console.error("Rotation failed", e);
-           }
-        }
-
-        // 保存するカードデータには corners を含めない（一時的な処理用情報）
-        const { corners: _corners, ...cardData } = extracted;
         setEditInitialData(prev => ({
           ...prev,
-          ...cardData,
-          imageUri: finalImage
+          ...extracted,
+          imageUri: finalImage,
         }));
         setStatus(ExtractionStatus.SUCCESS);
       } else {
@@ -211,11 +231,22 @@ export default function App() {
         {view === 'CAMERA' && (
           <PageTransition key="CAMERA" direction="fade">
             <CameraCapture
-              onCapture={cameraMode === 'BACK' ? handleCaptureBack : handleCapture}
+              onCapture={handleCapture}
               onClose={() => {
                 setCameraMode('FRONT');
                 navigateTo(cameraMode === 'BACK' ? 'EDIT' : 'LIST');
               }}
+            />
+          </PageTransition>
+        )}
+
+        {view === 'ADJUST' && adjustImage && (
+          <PageTransition key="ADJUST" direction="fade">
+            <CornerAdjustView
+              imageDataUri={adjustImage}
+              onApply={handleAdjustApply}
+              onSkip={handleAdjustSkip}
+              onCancel={handleAdjustCancel}
             />
           </PageTransition>
         )}
