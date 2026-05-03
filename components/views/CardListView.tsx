@@ -46,7 +46,7 @@ const ListItem: React.FC<{ card: BusinessCard; onSelect: (card: BusinessCard) =>
         <p className="text-xs text-brand-500 font-semibold truncate leading-tight">{card.company}</p>
         {card.title && <p className="text-xs text-slate-400 truncate leading-tight mt-0.5">{card.title}</p>}
       </div>
-      <svg className="w-4 h-4 text-slate-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg width="24" height="24" className="w-4 h-4 text-slate-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
       </svg>
     </div>
