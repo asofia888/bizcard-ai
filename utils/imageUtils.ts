@@ -3,6 +3,45 @@ const JPEG_QUALITY = 0.88;
 export const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
 /**
+ * PDF ファイルの 1 ページ目を JPEG (data URI) に変換する。
+ * pdf.js を遅延ロードしてバンドルサイズへの影響を抑える。
+ */
+export const pdfToImage = async (file: File): Promise<string> => {
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error('ファイルサイズが大きすぎます（上限: 20MB）。');
+  }
+  // 遅延ロード: PDF を選んだ人だけが pdf.js を取得する
+  const pdfjs: any = await import('pdfjs-dist');
+  // Vite 用に worker をモジュールとして解決
+  const workerUrl = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
+  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+  if (pdf.numPages < 1) throw new Error('PDFにページがありません。');
+  const page = await pdf.getPage(1);
+
+  // viewport の自然サイズを取得し、長辺が MAX_DIMENSION になるようスケールを決定
+  const baseViewport = page.getViewport({ scale: 1 });
+  const scale = Math.min(4, MAX_DIMENSION / Math.max(baseViewport.width, baseViewport.height));
+  const viewport = page.getViewport({ scale });
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(viewport.width);
+  canvas.height = Math.round(viewport.height);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas context を取得できません。');
+
+  // 背景を白で塗ってから描画（透明PDFでJPEG化したときに黒くならないように）
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+
+  return canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+};
+
+/**
  * 画像ファイルを最大寸法 MAX_DIMENSION の JPEG (data URI) に変換する。
  * iOS の書類スキャン保存ファイルなど、任意の画像/HEIC を取り込める。
  */

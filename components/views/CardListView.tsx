@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { BusinessCard } from '../../types';
 import { CameraIcon, SearchIcon, PlusIcon, SettingsIcon, LogoIcon, UploadIcon } from '../Icons';
 import { cardGradient } from '../../utils/gradients';
-import { fileToDataUri } from '../../utils/imageUtils';
+import { fileToDataUri, pdfToImage } from '../../utils/imageUtils';
 
 interface CardListViewProps {
   cards: BusinessCard[];
@@ -67,10 +67,11 @@ export const CardListView: React.FC<CardListViewProps> = ({
     e.target.value = ''; // 同じファイルを連続選択できるようリセット
     if (!file) return;
     try {
-      const dataUri = await fileToDataUri(file);
+      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+      const dataUri = isPdf ? await pdfToImage(file) : await fileToDataUri(file);
       onAddFromFile(dataUri);
     } catch (err: any) {
-      alert(err?.message || '画像の読み込みに失敗しました。');
+      alert(err?.message || 'ファイルの読み込みに失敗しました。');
     }
   };
 
@@ -270,7 +271,7 @@ export const CardListView: React.FC<CardListViewProps> = ({
           <UploadIcon className="w-5 h-5" />
           <input
             type="file"
-            accept="image/*"
+            accept="image/*,application/pdf,.pdf"
             onChange={handleFileChange}
             className="hidden"
           />
