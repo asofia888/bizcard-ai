@@ -5,6 +5,9 @@ import {
 } from '../Icons';
 import { exportVCard } from '../../utils/vcardUtils';
 import { avatarGradient } from '../../utils/gradients';
+import { useImageAspect } from '../../utils/imageUtils';
+
+const cardAspectFor = (a: number | undefined) => (a !== undefined && a < 1 ? '55/91' : '91/55');
 
 interface CardDetailViewProps {
   card: BusinessCard;
@@ -163,6 +166,8 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
   const [activeSide, setActiveSide] = useState<'FRONT' | 'BACK'>('FRONT');
 
   const activeImage = activeSide === 'BACK' ? card.imageUriBack : card.imageUri;
+  const activeAspect = useImageAspect(activeImage);
+  const isPortrait = activeAspect !== undefined && activeAspect < 1;
 
   const actionButtons = [
     {
@@ -253,8 +258,8 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
                   </div>
                 )}
                 <div
-                  className="w-full rounded-xl overflow-hidden shadow-md cursor-zoom-in active:opacity-90 transition-opacity"
-                  style={{ aspectRatio: '91/55' }}
+                  className={`rounded-xl overflow-hidden shadow-md cursor-zoom-in active:opacity-90 transition-opacity mx-auto ${isPortrait ? 'max-w-[55%]' : 'w-full'}`}
+                  style={{ aspectRatio: cardAspectFor(activeAspect) }}
                   onClick={() => activeImage && setIsZoomOpen(true)}
                 >
                   <img

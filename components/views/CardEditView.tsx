@@ -3,6 +3,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { BusinessCard, ExtractionStatus } from '../../types';
 import { ArrowLeftIcon, CheckIcon, CameraIcon } from '../Icons';
 import { useDialog } from '../Dialog';
+import { useImageAspect } from '../../utils/imageUtils';
+
+// 名刺の横向き(91/55)と縦向き(55/91)の中間で切り替え
+const cardAspectFor = (a: number | undefined) => (a !== undefined && a < 1 ? '55/91' : '91/55');
 
 interface CardEditViewProps {
   initialData: Partial<BusinessCard>;
@@ -29,6 +33,10 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
   const [formData, setFormData] = useState<Partial<BusinessCard>>(initialData);
   const [tagInput, setTagInput] = useState('');
   const tagInputRef = useRef<HTMLInputElement>(null);
+  const frontAspect = useImageAspect(tempImage);
+  const backAspect  = useImageAspect(tempImageBack);
+  const isFrontPortrait = frontAspect !== undefined && frontAspect < 1;
+  const isBackPortrait  = backAspect  !== undefined && backAspect  < 1;
 
   useEffect(() => {
     setFormData(prev => ({ ...prev, ...initialData }));
@@ -132,10 +140,10 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
           )}
 
           {tempImage && (
-            /* 表面プレビュー（名刺比率 91:55） */
+            /* 表面プレビュー（横:91/55 / 縦:55/91） */
             <div
-              className="w-full rounded-2xl overflow-hidden shadow-md bg-slate-900 relative"
-              style={{ aspectRatio: '91/55' }}
+              className={`rounded-2xl overflow-hidden shadow-md bg-slate-900 relative mx-auto ${isFrontPortrait ? 'max-w-[55%]' : 'w-full'}`}
+              style={{ aspectRatio: cardAspectFor(frontAspect) }}
             >
               <img src={tempImage} alt="表面プレビュー" className="w-full h-full object-contain" />
               <div className="absolute bottom-2 left-0 right-0 flex justify-center">
@@ -152,8 +160,8 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
           {tempImageBack ? (
             <>
               <div
-                className="w-full rounded-2xl overflow-hidden shadow-md bg-slate-900 relative"
-                style={{ aspectRatio: '91/55' }}
+                className={`rounded-2xl overflow-hidden shadow-md bg-slate-900 relative mx-auto ${isBackPortrait ? 'max-w-[55%]' : 'w-full'}`}
+                style={{ aspectRatio: cardAspectFor(backAspect) }}
               >
                 <img src={tempImageBack} alt="裏面プレビュー" className="w-full h-full object-contain" />
                 <div className="absolute bottom-2 left-0 right-0 flex justify-center">

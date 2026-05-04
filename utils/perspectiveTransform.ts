@@ -10,7 +10,9 @@ export interface Corners {
   bottomLeft: Point;
 }
 
-const CARD_ASPECT = 91 / 55;
+// 名刺標準サイズ (91mm × 55mm)。横向き=91/55、縦向き=55/91。
+const CARD_ASPECT_LANDSCAPE = 91 / 55;
+const CARD_ASPECT_PORTRAIT  = 55 / 91;
 const MAX_OUTPUT_DIMENSION = 2000;
 
 function solve8x8(A: number[][], b: number[]): number[] {
@@ -116,14 +118,18 @@ export async function perspectiveCorrect(
         const detectedW = Math.max(widthTop, widthBot);
         const detectedH = Math.max(heightLeft, heightRight);
 
+        // 検出された四隅の縦横比から、横向き名刺か縦向き名刺かを判定して
+        // 出力先のアスペクト比を切り替える
+        const targetAspect = detectedW >= detectedH ? CARD_ASPECT_LANDSCAPE : CARD_ASPECT_PORTRAIT;
+
         let outW: number;
         let outH: number;
-        if (detectedW / detectedH > CARD_ASPECT) {
+        if (detectedW / detectedH > targetAspect) {
           outW = Math.round(detectedW);
-          outH = Math.round(detectedW / CARD_ASPECT);
+          outH = Math.round(detectedW / targetAspect);
         } else {
           outH = Math.round(detectedH);
-          outW = Math.round(detectedH * CARD_ASPECT);
+          outW = Math.round(detectedH * targetAspect);
         }
 
         if (outW > MAX_OUTPUT_DIMENSION || outH > MAX_OUTPUT_DIMENSION) {

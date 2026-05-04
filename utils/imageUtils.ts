@@ -2,6 +2,26 @@ const MAX_DIMENSION = 2000;
 const JPEG_QUALITY = 0.88;
 export const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
+import { useEffect, useState } from 'react';
+
+// 画像 (data URI / URL) の自然サイズから「W/H」のアスペクト比を返す。
+// 名刺プレビューの縦横自動切り替えに使う。
+export function useImageAspect(src: string | null | undefined): number | undefined {
+  const [aspect, setAspect] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    if (!src) { setAspect(undefined); return; }
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (cancelled) return;
+      if (img.width > 0 && img.height > 0) setAspect(img.width / img.height);
+    };
+    img.src = src;
+    return () => { cancelled = true; };
+  }, [src]);
+  return aspect;
+}
+
 /**
  * PDF ファイルの 1 ページ目を JPEG (data URI) に変換する。
  * pdf.js を遅延ロードしてバンドルサイズへの影響を抑える。

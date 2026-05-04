@@ -9,8 +9,11 @@ interface CameraCaptureProps {
 const MAX_DIMENSION = 2000;
 const JPEG_QUALITY = 0.88;
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
-// 日本の名刺標準サイズ: 91mm × 55mm
-const CARD_ASPECT = 91 / 55;
+// 日本の名刺標準サイズ: 91mm × 55mm（横向き）/ 55mm × 91mm（縦向き）
+const CARD_ASPECT_LANDSCAPE = 91 / 55;
+const CARD_ASPECT_PORTRAIT  = 55 / 91;
+
+type Orientation = 'LANDSCAPE' | 'PORTRAIT';
 
 export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -18,6 +21,8 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
   const guideRef = useRef<HTMLDivElement>(null);
   const [videoReady, setVideoReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [orientation, setOrientation] = useState<Orientation>('LANDSCAPE');
+  const cardAspect = orientation === 'LANDSCAPE' ? CARD_ASPECT_LANDSCAPE : CARD_ASPECT_PORTRAIT;
 
   const startCamera = async () => {
     try {
@@ -168,14 +173,34 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
             />
           </div>
 
+          {/* 縦/横切り替えトグル */}
+          <div className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-1/2 -translate-x-1/2 z-20 bg-black/50 backdrop-blur-sm rounded-full p-1 flex pointer-events-auto">
+            {(['LANDSCAPE', 'PORTRAIT'] as const).map(o => (
+              <button
+                key={o}
+                onClick={() => setOrientation(o)}
+                className={`px-4 py-1.5 text-xs font-bold rounded-full transition-colors ${
+                  orientation === o ? 'bg-white text-slate-900' : 'text-white/80 hover:text-white'
+                }`}
+                aria-label={o === 'LANDSCAPE' ? '横向き名刺' : '縦向き名刺'}
+                aria-pressed={orientation === o}
+              >
+                {o === 'LANDSCAPE' ? '横' : '縦'}
+              </button>
+            ))}
+          </div>
+
           {/* 名刺ガイドオーバーレイ */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             {/* 名刺比率ガイド枠（box-shadow で周囲を暗くする） */}
             <div
               ref={guideRef}
-              className="w-5/6"
               style={{
-                aspectRatio: String(CARD_ASPECT),
+                aspectRatio: String(cardAspect),
+                width:  orientation === 'LANDSCAPE' ? '83%' : 'auto',
+                height: orientation === 'PORTRAIT'  ? '60%' : 'auto',
+                maxWidth:  '88%',
+                maxHeight: '70%',
                 boxShadow: '0 0 0 9999px rgba(0,0,0,0.58)',
                 borderRadius: '6px',
                 position: 'relative',
