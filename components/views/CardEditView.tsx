@@ -62,6 +62,7 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
       tags: formData.tags || [],
       imageUri: formData.imageUri || null,
       imageUriBack: formData.imageUriBack ?? null,
+      thumbUri: formData.thumbUri ?? null, // フックが保存後に再生成して上書きする
       createdAt: formData.createdAt || Date.now(),
     };
 

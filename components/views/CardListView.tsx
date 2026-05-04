@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { BusinessCard } from '../../types';
 import { CameraIcon, SearchIcon, PlusIcon, SettingsIcon, LogoIcon, UploadIcon } from '../Icons';
 import { cardGradient } from '../../utils/gradients';
-import { fileToDataUri, pdfToImage, useImageAspect } from '../../utils/imageUtils';
+import { fileToDataUri, pdfToImage } from '../../utils/imageUtils';
 
 interface CardListViewProps {
   cards: BusinessCard[];
@@ -23,22 +23,26 @@ function cleanSearchQuery(q: string): string {
 // ── トップレベルコンポーネント（毎レンダリングで再生成されない） ──
 const ListItem: React.FC<{ card: BusinessCard; onSelect: (card: BusinessCard) => void }> = ({ card, onSelect }) => {
   const g = cardGradient(card.name || card.company);
-  const aspect = useImageAspect(card.imageUri);
-  // 縦型は少し縮小して縦のまま表示（横向きと同等の面積感に揃えるため高さを下げる）
-  const isPortrait = aspect !== undefined && aspect < 1;
-  const thumbHeight = isPortrait ? 'h-9' : 'h-11';
-  const thumbAspect = isPortrait ? '55/91' : '91/55';
+  // 表示は派生サムネ (≈200px) を優先し、無い場合のみフル画像にフォールバック。
+  // 100枚超でも 44px サムネのデコードはほぼ瞬時で済む。
+  const displayImage = card.thumbUri ?? card.imageUri;
+  // スロットは横向き名刺の比率(91:55)で固定し、行高や text 開始位置を全行で揃える。
+  // 中の画像は object-contain で原寸の比率を保ち、縦型は中央に小さく縦のまま表示する。
   return (
     <div
       onClick={() => onSelect(card)}
       className="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-100/80 active:scale-[0.98] transition-all cursor-pointer flex items-center gap-3.5 hover:shadow-md hover:border-slate-200"
     >
       <div
-        className={`${thumbHeight} flex-shrink-0 rounded-lg bg-gradient-to-br ${g.from} ${g.to} flex items-center justify-center text-white font-extrabold text-base overflow-hidden shadow-sm`}
-        style={{ aspectRatio: thumbAspect }}
+        className={`h-11 flex-shrink-0 rounded-lg flex items-center justify-center overflow-hidden shadow-sm ${
+          displayImage
+            ? 'bg-slate-100'
+            : `bg-gradient-to-br ${g.from} ${g.to} text-white font-extrabold text-base`
+        }`}
+        style={{ aspectRatio: '91/55' }}
       >
-        {card.imageUri ? (
-          <img src={card.imageUri} alt="" className="w-full h-full object-cover" />
+        {displayImage ? (
+          <img src={displayImage} alt="" className="w-full h-full object-contain" />
         ) : (
           (card.name || card.company).charAt(0).toUpperCase()
         )}

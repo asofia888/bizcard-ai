@@ -1,7 +1,11 @@
 import { useState, useEffect, useRef, useContext } from 'react';
 import { BusinessCard } from '../types';
 import { saveImage, getAllImages, deleteImage } from '../utils/imageDB';
+import { generateThumbnail } from '../utils/imageUtils';
 import { DialogContext } from '../components/Dialog';
+
+const THUMB_SUFFIX = '_thumb';
+const BACK_SUFFIX  = '_back';
 
 const INITIAL_CARDS: BusinessCard[] = [
   {
@@ -18,17 +22,18 @@ const INITIAL_CARDS: BusinessCard[] = [
     tags: ['展示会', '重要'],
     imageUri: null,
     imageUriBack: null,
+    thumbUri: null,
     createdAt: Date.now()
   }
 ];
 
-/** localStorage からカードメタデータを読み込む（imageUri / imageUriBack は null で返る） */
+/** localStorage からカードメタデータを読み込む（画像系フィールドは null で返る） */
 function loadMetadata(): BusinessCard[] {
   try {
     const saved = localStorage.getItem('bizcard_data');
     const cards = saved ? JSON.parse(saved) : INITIAL_CARDS;
-    // imageUriBack がない旧データを正規化
-    return cards.map((c: any) => ({ imageUriBack: null, ...c }));
+    // 旧データ正規化: imageUriBack / thumbUri が無いケースに備える
+    return cards.map((c: any) => ({ imageUriBack: null, thumbUri: null, ...c }));
   } catch {
     return INITIAL_CARDS;
   }
@@ -36,7 +41,7 @@ function loadMetadata(): BusinessCard[] {
 
 /** localStorage にメタデータのみ保存（画像データは除外） */
 function saveMetadata(cards: BusinessCard[], key = 'bizcard_data'): void {
-  const metadata = cards.map(c => ({ ...c, imageUri: null, imageUriBack: null }));
+  const metadata = cards.map(c => ({ ...c, imageUri: null, imageUriBack: null, thumbUri: null }));
   localStorage.setItem(key, JSON.stringify(metadata));
 }
 
@@ -83,12 +88,30 @@ export const useBusinessCards = () => {
         const images = await getAllImages();
         const cardsWithImages = metadata.map(c => ({
           ...c,
-          imageUri:     images[c.id]           ?? null,
-          imageUriBack: images[c.id + '_back'] ?? null,
+          imageUri:     images[c.id]                ?? null,
+          imageUriBack: images[c.id + BACK_SUFFIX]  ?? null,
+          thumbUri:     images[c.id + THUMB_SUFFIX] ?? null,
         }));
 
         initializedRef.current = true;
         setCards(cardsWithImages);
+
+        // バックフィル: imageUri はあるがサムネ未生成のカードに対し、
+        // バックグラウンドでサムネを生成・永続化する。一度通れば次回以降は不要。
+        const needsThumb = cardsWithImages.filter(c => !c.thumbUri && c.imageUri);
+        if (needsThumb.length > 0) {
+          (async () => {
+            for (const card of needsThumb) {
+              try {
+                const thumb = await generateThumbnail(card.imageUri as string);
+                await saveImage(card.id + THUMB_SUFFIX, thumb);
+                setCards(prev => prev.map(c => (c.id === card.id ? { ...c, thumbUri: thumb } : c)));
+              } catch (e) {
+                console.error('Failed to backfill thumbnail for', card.id, e);
+              }
+            }
+          })();
+        }
       } catch (e) {
         console.error('Failed to initialize cards with images:', e);
         initializedRef.current = true;
@@ -126,18 +149,31 @@ export const useBusinessCards = () => {
     return () => clearTimeout(timer);
   }, [cards, lastBackupTime]);
 
+  // 表面画像が変わったらサムネを再生成し IDB と state に反映する。
+  // 失敗してもアプリは止めない (フル画像へフォールバック表示できる)。
+  const refreshThumbnail = (id: string, imageUri: string) => {
+    generateThumbnail(imageUri)
+      .then(thumb => {
+        setCards(prev => prev.map(c => (c.id === id ? { ...c, thumbUri: thumb } : c)));
+        return saveImage(id + THUMB_SUFFIX, thumb);
+      })
+      .catch(e => console.error('Failed to generate/save thumbnail:', e));
+  };
+
   const addCard = (card: BusinessCard) => {
+    const seeded: BusinessCard = { ...card, thumbUri: card.thumbUri ?? null };
     if (card.imageUri) {
       saveImage(card.id, card.imageUri).catch(e =>
         console.error('Failed to save image to IndexedDB:', e)
       );
+      refreshThumbnail(card.id, card.imageUri);
     }
     if (card.imageUriBack) {
-      saveImage(card.id + '_back', card.imageUriBack).catch(e =>
+      saveImage(card.id + BACK_SUFFIX, card.imageUriBack).catch(e =>
         console.error('Failed to save back image to IndexedDB:', e)
       );
     }
-    setCards(prev => [card, ...prev]);
+    setCards(prev => [seeded, ...prev]);
   };
 
   const updateCard = (updatedCard: BusinessCard) => {
@@ -145,13 +181,20 @@ export const useBusinessCards = () => {
       saveImage(updatedCard.id, updatedCard.imageUri).catch(e =>
         console.error('Failed to save image to IndexedDB:', e)
       );
+      refreshThumbnail(updatedCard.id, updatedCard.imageUri);
+    } else {
+      // 画像が消えた → サムネも削除
+      deleteImage(updatedCard.id + THUMB_SUFFIX).catch(() => { /* なければ無視 */ });
     }
     if (updatedCard.imageUriBack) {
-      saveImage(updatedCard.id + '_back', updatedCard.imageUriBack).catch(e =>
+      saveImage(updatedCard.id + BACK_SUFFIX, updatedCard.imageUriBack).catch(e =>
         console.error('Failed to save back image to IndexedDB:', e)
       );
     }
-    setCards(prev => prev.map(c => c.id === updatedCard.id ? updatedCard : c));
+    // 既存の thumbUri を維持しつつ更新 (新サムネは refreshThumbnail で後ほど上書き)
+    setCards(prev =>
+      prev.map(c => (c.id === updatedCard.id ? { ...updatedCard, thumbUri: c.thumbUri ?? null } : c))
+    );
   };
 
   const deleteCard = async (id: string): Promise<boolean> => {
@@ -160,7 +203,8 @@ export const useBusinessCards = () => {
       deleteImage(id).catch(e =>
         console.error('Failed to delete image from IndexedDB:', e)
       );
-      deleteImage(id + '_back').catch(() => { /* 裏面がない場合は無視 */ });
+      deleteImage(id + BACK_SUFFIX).catch(() => { /* 裏面がない場合は無視 */ });
+      deleteImage(id + THUMB_SUFFIX).catch(() => { /* サムネがない場合は無視 */ });
       setCards(prev => prev.filter(c => c.id !== id));
       return true;
     }
@@ -176,8 +220,10 @@ export const useBusinessCards = () => {
         exportedAt: Date.now(),
         cards: cards.map(c => ({
           ...c,
-          imageUri:     images[c.id]           ?? null,
-          imageUriBack: images[c.id + '_back'] ?? null,
+          imageUri:     images[c.id]                ?? null,
+          imageUriBack: images[c.id + BACK_SUFFIX]  ?? null,
+          // サムネはフル画像から再生成可能なため、バックアップサイズ削減のため除外
+          thumbUri:     null,
         })),
       };
       const blob = new Blob([JSON.stringify(backupData)], { type: 'application/json;charset=utf-8' });
@@ -246,18 +292,39 @@ export const useBusinessCards = () => {
         (c: any) => c.imageUriBack && typeof c.imageUriBack === 'string' && c.imageUriBack.startsWith('data:')
       );
       if (backImageCards.length > 0) {
-        await Promise.all(backImageCards.map((c: any) => saveImage(c.id + '_back', c.imageUriBack as string)));
+        await Promise.all(backImageCards.map((c: any) => saveImage(c.id + BACK_SUFFIX, c.imageUriBack as string)));
       }
+
+      // 復元データに含まれるサムネを優先採用、なければフル画像から再生成して保存
+      const thumbResults = await Promise.all(
+        imageCards.map(async (c: any) => {
+          if (c.thumbUri && typeof c.thumbUri === 'string' && c.thumbUri.startsWith('data:')) {
+            return { id: c.id, thumb: c.thumbUri as string };
+          }
+          try {
+            const thumb = await generateThumbnail(c.imageUri as string);
+            return { id: c.id, thumb };
+          } catch {
+            return null;
+          }
+        })
+      );
+      await Promise.all(
+        thumbResults
+          .filter((r): r is { id: string; thumb: string } => r !== null)
+          .map(r => saveImage(r.id + THUMB_SUFFIX, r.thumb))
+      );
 
       // メタデータを localStorage に保存
       saveMetadata(cardsData);
 
-      // IndexedDB から全画像をマージ（表面・裏面）
+      // IndexedDB から全画像をマージ（表面・裏面・サムネ）
       const images = await getAllImages();
       const cardsWithImages = cardsData.map(c => ({
         ...c,
-        imageUri:     images[c.id]           ?? null,
-        imageUriBack: images[c.id + '_back'] ?? (c as any).imageUriBack ?? null,
+        imageUri:     images[c.id]                ?? null,
+        imageUriBack: images[c.id + BACK_SUFFIX]  ?? (c as any).imageUriBack ?? null,
+        thumbUri:     images[c.id + THUMB_SUFFIX] ?? null,
       }));
 
       setCards(cardsWithImages);

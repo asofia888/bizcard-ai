@@ -17,6 +17,7 @@ const fullCard: BusinessCard = {
   tags: [],
   imageUri: null,
   imageUriBack: null,
+  thumbUri: null,
   createdAt: Date.now(),
 };
 
