@@ -6,7 +6,9 @@ import { extractCard, ExtractError } from '../services/extractCard.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
-app.use(express.json({ limit: '10mb' }));
+// クライアント側の MAX_FILE_SIZE は 20MB。base64 化で約 1.33 倍に膨らむため上限を 25MB に設定。
+// クライアント側で送信前に追加圧縮する防御層もあるため、通常はここまで使われない。
+app.use(express.json({ limit: '25mb' }));
 
 const PORT = process.env.PORT || 3001;
 

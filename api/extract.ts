@@ -3,6 +3,16 @@ import { extractCard, ExtractError } from '../services/extractCard.js';
 
 export const maxDuration = 60;
 
+// Vercel API ルートのデフォルト body 上限 (4.5MB) では、
+// 高解像度の名刺画像 (base64 化で約 +33%) で 413 になりうるため引き上げ。
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '25mb',
+    },
+  },
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });

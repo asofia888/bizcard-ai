@@ -96,6 +96,98 @@ export const fileToDataUri = (file: File): Promise<string> => {
   });
 };
 
+/**
+ * リスト描画用の小さいサムネ画像を生成する (デフォルト最大 200px)。
+ * 200px JPEG はおよそ 5〜15KB 程度に収まる。
+ */
+export async function generateThumbnail(
+  dataUri: string,
+  maxDim: number = 200,
+  quality: number = 0.72,
+): Promise<string> {
+  const img = await loadHtmlImage(dataUri);
+  return reencodeJpeg(img, maxDim, quality);
+}
+
+/**
+ * data URI のおおよそのバイト数を返す (base64 部分のみ計上)。
+ */
+function approxByteSize(dataUri: string): number {
+  const comma = dataUri.indexOf(',');
+  const base64 = comma >= 0 ? dataUri.slice(comma + 1) : dataUri;
+  // base64 は 4 文字で 3 バイトを表現、末尾の '=' パディングは無視で十分な近似
+  return Math.floor((base64.length * 3) / 4);
+}
+
+function reencodeJpeg(img: HTMLImageElement, maxDim: number, quality: number): string {
+  const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width * scale));
+  const h = Math.max(1, Math.round(img.height * scale));
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d');
+  if (!ctx) throw new Error('Canvas context unavailable');
+  ctx.drawImage(img, 0, 0, w, h);
+  return c.toDataURL('image/jpeg', quality);
+}
+
+function loadHtmlImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('画像の読み込みに失敗しました'));
+    img.src = src;
+  });
+}
+
+/**
+ * AI 解析 API 送信用に画像 data URI を圧縮する。
+ * - 既に targetBytes 以下ならそのまま返す
+ * - 超えていれば maxDim と JPEG 品質を段階的に下げて再エンコードする
+ *
+ * Express body limit (25MB) と Vercel limit (25MB) の両方で十分マージンを取るため、
+ * デフォルトは 6MB を目標にする。
+ */
+export async function compressImageDataUri(
+  dataUri: string,
+  targetBytes: number = 6 * 1024 * 1024,
+): Promise<string> {
+  if (approxByteSize(dataUri) <= targetBytes) return dataUri;
+
+  let img: HTMLImageElement;
+  try {
+    img = await loadHtmlImage(dataUri);
+  } catch {
+    // 圧縮できない場合は元のままで送る (上位でサーバ側 413 を捕捉)
+    return dataUri;
+  }
+
+  const candidates: Array<[number, number]> = [
+    [2000, 0.7],
+    [1800, 0.6],
+    [1500, 0.55],
+    [1200, 0.5],
+    [1000, 0.4],
+  ];
+
+  for (const [maxDim, quality] of candidates) {
+    try {
+      const out = reencodeJpeg(img, maxDim, quality);
+      if (approxByteSize(out) <= targetBytes) return out;
+    } catch {
+      // canvas エラー等は次の段階へ
+    }
+  }
+
+  // 最終手段: 最も小さく、品質も最低に
+  try {
+    return reencodeJpeg(img, 800, 0.35);
+  } catch {
+    return dataUri;
+  }
+}
+
 export const rotateImage = (base64Str: string, degrees: number): Promise<string> => {
   return new Promise((resolve, reject) => {
     if (degrees === 0) {

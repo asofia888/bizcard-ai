@@ -1,9 +1,15 @@
+import { compressImageDataUri } from '../utils/imageUtils';
+
 const API_TIMEOUT = 30_000; // 30秒
 
 export const extractCardData = async (base64Image: string): Promise<any> => {
   if (!navigator.onLine) {
     throw new Error('オフラインです。ネットワーク接続を確認してください。');
   }
+
+  // サーバ側 body 上限 (Express/Vercel 共に 25MB) より十分小さく抑え、
+  // ネットワーク帯域と Gemini の応答時間を改善する。
+  const payload = await compressImageDataUri(base64Image);
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
@@ -12,7 +18,7 @@ export const extractCardData = async (base64Image: string): Promise<any> => {
     const response = await fetch('/api/extract', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ base64Image }),
+      body: JSON.stringify({ base64Image: payload }),
       signal: controller.signal,
     });
 
