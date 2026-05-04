@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { BusinessCard } from '../../types';
 import { CameraIcon, SearchIcon, PlusIcon, SettingsIcon, LogoIcon, UploadIcon } from '../Icons';
 import { cardGradient } from '../../utils/gradients';
-import { fileToDataUri, pdfToImage } from '../../utils/imageUtils';
+import { fileToDataUri, pdfToImage, useImageAspect } from '../../utils/imageUtils';
 
 interface CardListViewProps {
   cards: BusinessCard[];
@@ -23,14 +23,19 @@ function cleanSearchQuery(q: string): string {
 // ── トップレベルコンポーネント（毎レンダリングで再生成されない） ──
 const ListItem: React.FC<{ card: BusinessCard; onSelect: (card: BusinessCard) => void }> = ({ card, onSelect }) => {
   const g = cardGradient(card.name || card.company);
+  const aspect = useImageAspect(card.imageUri);
+  // 縦型は少し縮小して縦のまま表示（横向きと同等の面積感に揃えるため高さを下げる）
+  const isPortrait = aspect !== undefined && aspect < 1;
+  const thumbHeight = isPortrait ? 'h-9' : 'h-11';
+  const thumbAspect = isPortrait ? '55/91' : '91/55';
   return (
     <div
       onClick={() => onSelect(card)}
       className="bg-white p-3.5 rounded-2xl shadow-sm border border-slate-100/80 active:scale-[0.98] transition-all cursor-pointer flex items-center gap-3.5 hover:shadow-md hover:border-slate-200"
     >
       <div
-        className={`h-11 flex-shrink-0 rounded-lg bg-gradient-to-br ${g.from} ${g.to} flex items-center justify-center text-white font-extrabold text-base overflow-hidden shadow-sm`}
-        style={{ aspectRatio: '91/55' }}
+        className={`${thumbHeight} flex-shrink-0 rounded-lg bg-gradient-to-br ${g.from} ${g.to} flex items-center justify-center text-white font-extrabold text-base overflow-hidden shadow-sm`}
+        style={{ aspectRatio: thumbAspect }}
       >
         {card.imageUri ? (
           <img src={card.imageUri} alt="" className="w-full h-full object-cover" />
