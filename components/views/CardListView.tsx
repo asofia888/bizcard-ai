@@ -1,12 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { BusinessCard } from '../../types';
-import { CameraIcon, SearchIcon, PlusIcon, SettingsIcon, LogoIcon } from '../Icons';
+import { CameraIcon, SearchIcon, PlusIcon, SettingsIcon, LogoIcon, UploadIcon } from '../Icons';
 import { cardGradient } from '../../utils/gradients';
+import { fileToDataUri } from '../../utils/imageUtils';
 
 interface CardListViewProps {
   cards: BusinessCard[];
   onSelectCard: (card: BusinessCard) => void;
   onAddCard: () => void;
+  onAddFromFile: (imageData: string) => void;
   onOpenSettings: () => void;
 }
 
@@ -57,8 +59,21 @@ export const CardListView: React.FC<CardListViewProps> = ({
   cards,
   onSelectCard,
   onAddCard,
+  onAddFromFile,
   onOpenSettings,
 }) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // 同じファイルを連続選択できるようリセット
+    if (!file) return;
+    try {
+      const dataUri = await fileToDataUri(file);
+      onAddFromFile(dataUri);
+    } catch (err: any) {
+      alert(err?.message || '画像の読み込みに失敗しました。');
+    }
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const [groupBy, setGroupBy] = useState<'NONE' | 'COMPANY' | 'TITLE' | 'COUNTRY'>('NONE');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -247,12 +262,27 @@ export const CardListView: React.FC<CardListViewProps> = ({
         </div>
       </div>
 
-      <button
-        onClick={onAddCard}
-        className="absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-6 w-14 h-14 bg-gradient-to-br from-brand-500 to-brand-700 hover:from-brand-600 hover:to-brand-800 text-white rounded-2xl shadow-xl shadow-brand-300 flex items-center justify-center active:scale-90 transition-all z-30"
-      >
-        <PlusIcon className="w-7 h-7" />
-      </button>
+      <div className="absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-6 flex items-center gap-3 z-30">
+        <label
+          aria-label="写真ファイルから追加"
+          className="w-12 h-12 bg-white text-brand-600 border border-slate-200 rounded-2xl shadow-md flex items-center justify-center active:scale-90 transition-all cursor-pointer"
+        >
+          <UploadIcon className="w-5 h-5" />
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+        </label>
+        <button
+          onClick={onAddCard}
+          aria-label="カメラで撮影して追加"
+          className="w-14 h-14 bg-gradient-to-br from-brand-500 to-brand-700 hover:from-brand-600 hover:to-brand-800 text-white rounded-2xl shadow-xl shadow-brand-300 flex items-center justify-center active:scale-90 transition-all"
+        >
+          <PlusIcon className="w-7 h-7" />
+        </button>
+      </div>
     </>
   );
 };

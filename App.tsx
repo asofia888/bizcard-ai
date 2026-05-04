@@ -223,6 +223,7 @@ export default function App() {
                 cards={cards}
                 onSelectCard={openDetail}
                 onAddCard={() => navigateTo('CAMERA')}
+                onAddFromFile={handleCapture}
                 onOpenSettings={() => navigateTo('SETTINGS')}
             />
           </PageTransition>

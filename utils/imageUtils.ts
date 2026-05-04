@@ -1,3 +1,42 @@
+const MAX_DIMENSION = 2000;
+const JPEG_QUALITY = 0.88;
+export const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+
+/**
+ * 画像ファイルを最大寸法 MAX_DIMENSION の JPEG (data URI) に変換する。
+ * iOS の書類スキャン保存ファイルなど、任意の画像/HEIC を取り込める。
+ */
+export const fileToDataUri = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    if (file.size > MAX_FILE_SIZE) {
+      reject(new Error('ファイルサイズが大きすぎます（上限: 20MB）。'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const original = reader.result as string;
+      const img = new Image();
+      img.onload = () => {
+        const s = Math.min(1, MAX_DIMENSION / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * s);
+        c.height = Math.round(img.height * s);
+        const ctx = c.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, c.width, c.height);
+          resolve(c.toDataURL('image/jpeg', JPEG_QUALITY));
+        } else {
+          resolve(original);
+        }
+      };
+      img.onerror = () => reject(new Error('画像の読み込みに失敗しました。'));
+      img.src = original;
+    };
+    reader.onerror = () => reject(new Error('ファイルの読み込みに失敗しました。'));
+    reader.readAsDataURL(file);
+  });
+};
+
 export const rotateImage = (base64Str: string, degrees: number): Promise<string> => {
   return new Promise((resolve, reject) => {
     if (degrees === 0) {
