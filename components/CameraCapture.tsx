@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { XIcon, UploadIcon } from './Icons';
+import { pdfToImage } from '../utils/imageUtils';
 
 interface CameraCaptureProps {
   onCapture: (imageData: string) => void;
@@ -103,12 +104,24 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
     onCapture(canvas.toDataURL('image/jpeg', JPEG_QUALITY));
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    event.target.value = ''; // 同じファイルを連続選択できるようリセット
     if (!file) return;
 
     if (file.size > MAX_FILE_SIZE) {
       setError('ファイルサイズが大きすぎます（上限: 20MB）。');
+      return;
+    }
+
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    if (isPdf) {
+      try {
+        const dataUri = await pdfToImage(file);
+        onCapture(dataUri);
+      } catch (err: any) {
+        setError(err?.message || 'PDFの読み込みに失敗しました。');
+      }
       return;
     }
 
@@ -157,7 +170,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
           <label className="bg-brand-500 hover:bg-brand-600 text-white px-6 py-3 rounded-full cursor-pointer flex items-center gap-2">
             <UploadIcon className="w-5 h-5" />
             <span>画像をアップロード</span>
-            <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+            <input type="file" accept="image/*,application/pdf,.pdf" onChange={handleFileUpload} className="hidden" />
           </label>
         </div>
       ) : (
@@ -225,7 +238,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
                 <UploadIcon className="w-6 h-6" />
               </div>
               <span className="text-xs">写真選択</span>
-              <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+              <input type="file" accept="image/*,application/pdf,.pdf" onChange={handleFileUpload} className="hidden" />
             </label>
 
             <button
