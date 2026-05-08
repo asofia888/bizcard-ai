@@ -274,6 +274,7 @@ export default function App() {
                 onSave={handleSaveFromEdit}
                 onCancel={handleCancelEdit}
                 onScanBack={() => { setCameraMode('BACK'); navigateTo('CAMERA'); }}
+                onAddBackFromFile={(imageData) => { setCameraMode('BACK'); handleCapture(imageData); }}
             />
           </PageTransition>
         )}

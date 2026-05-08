@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { BusinessCard, ExtractionStatus } from '../../types';
-import { ArrowLeftIcon, CheckIcon, CameraIcon } from '../Icons';
+import { ArrowLeftIcon, CheckIcon, CameraIcon, UploadIcon } from '../Icons';
 import { useDialog } from '../Dialog';
-import { useImageAspect } from '../../utils/imageUtils';
+import { useImageAspect, fileToDataUri, pdfToImage } from '../../utils/imageUtils';
 
 // 名刺の横向き(91/55)と縦向き(55/91)の中間で切り替え
 const cardAspectFor = (a: number | undefined) => (a !== undefined && a < 1 ? '55/91' : '91/55');
@@ -17,6 +17,7 @@ interface CardEditViewProps {
   onSave: (card: BusinessCard) => void;
   onCancel: () => void;
   onScanBack: () => void;
+  onAddBackFromFile?: (imageData: string) => void;
 }
 
 export const CardEditView: React.FC<CardEditViewProps> = ({
@@ -28,6 +29,7 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
   onSave,
   onCancel,
   onScanBack,
+  onAddBackFromFile,
 }) => {
   const { showToast } = useDialog();
   const [formData, setFormData] = useState<Partial<BusinessCard>>(initialData);
@@ -83,6 +85,19 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
 
   const removeTag = (tag: string) => {
     setFormData(prev => ({ ...prev, tags: (prev.tags || []).filter(t => t !== tag) }));
+  };
+
+  const handleBackFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // 同じファイルを連続選択できるようリセット
+    if (!file || !onAddBackFromFile) return;
+    try {
+      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+      const dataUri = isPdf ? await pdfToImage(file) : await fileToDataUri(file);
+      onAddBackFromFile(dataUri);
+    } catch (err: any) {
+      showToast(err?.message || 'ファイルの読み込みに失敗しました。', 'error');
+    }
   };
 
   const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -169,23 +184,50 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
                   <p className="text-white text-[11px] bg-black/50 px-3 py-0.5 rounded-full backdrop-blur-sm">裏面</p>
                 </div>
               </div>
+              <div className={`grid ${onAddBackFromFile ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
+                <button
+                  type="button"
+                  onClick={onScanBack}
+                  className="py-3 text-sm font-semibold text-slate-500 hover:bg-slate-100 rounded-2xl border border-slate-200 transition-colors flex items-center justify-center gap-2"
+                >
+                  <CameraIcon className="w-4 h-4" /> 裏面を再撮影
+                </button>
+                {onAddBackFromFile && (
+                  <label className="py-3 text-sm font-semibold text-slate-500 hover:bg-slate-100 rounded-2xl border border-slate-200 transition-colors flex items-center justify-center gap-2 cursor-pointer">
+                    <UploadIcon className="w-4 h-4" /> ファイルから差し替え
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf,.pdf"
+                      onChange={handleBackFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="space-y-2">
               <button
                 type="button"
                 onClick={onScanBack}
-                className="w-full py-3 text-sm font-semibold text-slate-500 hover:bg-slate-100 rounded-2xl border border-slate-200 transition-colors flex items-center justify-center gap-2"
+                className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 hover:border-brand-300 hover:text-brand-500 hover:bg-brand-50 transition-all flex flex-col items-center gap-1.5"
               >
-                <CameraIcon className="w-4 h-4" /> 裏面を再撮影
+                <CameraIcon className="w-6 h-6" />
+                <span className="text-sm font-semibold">裏面を撮影する（任意）</span>
               </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              onClick={onScanBack}
-              className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 hover:border-brand-300 hover:text-brand-500 hover:bg-brand-50 transition-all flex flex-col items-center gap-1.5"
-            >
-              <CameraIcon className="w-6 h-6" />
-              <span className="text-sm font-semibold">裏面を撮影する（任意）</span>
-            </button>
+              {onAddBackFromFile && (
+                <label className="w-full py-3 border border-dashed border-slate-200 rounded-2xl text-slate-400 hover:border-brand-300 hover:text-brand-500 hover:bg-brand-50 transition-all flex items-center justify-center gap-2 cursor-pointer">
+                  <UploadIcon className="w-4 h-4" />
+                  <span className="text-xs font-semibold">画像 / PDF ファイルから読み込む</span>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf,.pdf"
+                    onChange={handleBackFileChange}
+                    className="hidden"
+                  />
+                </label>
+              )}
+            </div>
           )}
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
