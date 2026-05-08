@@ -19,7 +19,7 @@ const INITIAL_CARDS: BusinessCard[] = [
     website: 'www.tech-innovation.co.jp',
     address: '東京都渋谷区道玄坂1-2-3',
     note: '2024年の展示会で名刺交換。DX推進担当。',
-    tags: ['展示会', '重要'],
+    tags: [],
     imageUri: null,
     imageUriBack: null,
     thumbUri: null,

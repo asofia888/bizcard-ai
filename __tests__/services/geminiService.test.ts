@@ -1,12 +1,25 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { extractCardData } from '../../services/geminiService';
+
+const originalOnLine = Object.getOwnPropertyDescriptor(navigator, 'onLine');
+
+function mockOnLine(value: boolean) {
+  Object.defineProperty(navigator, 'onLine', { value, configurable: true });
+}
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  mockOnLine(true);
+});
+
+afterEach(() => {
+  if (originalOnLine) {
+    Object.defineProperty(navigator, 'onLine', originalOnLine);
+  }
 });
 
 describe('extractCardData', () => {
-  it('sends POST with correct URL, method, and body', async () => {
+  it('sends POST with correct URL, method, body, and signal', async () => {
     const mockData = { name: 'Test', company: 'Corp' };
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -15,11 +28,15 @@ describe('extractCardData', () => {
 
     await extractCardData('base64data');
 
-    expect(global.fetch).toHaveBeenCalledWith('/api/extract', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ base64Image: 'base64data' }),
-    });
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/extract',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64Image: 'base64data' }),
+        signal: expect.any(AbortSignal),
+      })
+    );
   });
 
   it('returns parsed JSON on success', async () => {
@@ -51,5 +68,31 @@ describe('extractCardData', () => {
     });
 
     await expect(extractCardData('base64data')).rejects.toThrow('Server error');
+  });
+
+  it('throws offline error when navigator.onLine is false before fetch', async () => {
+    mockOnLine(false);
+
+    await expect(extractCardData('base64data')).rejects.toThrow('オフライン');
+    expect(global.fetch).toBeUndefined;
+  });
+
+  it('throws timeout error when fetch is aborted', async () => {
+    global.fetch = vi.fn().mockImplementation(() => {
+      const error = new DOMException('The operation was aborted.', 'AbortError');
+      return Promise.reject(error);
+    });
+
+    await expect(extractCardData('base64data')).rejects.toThrow('タイムアウト');
+  });
+
+  it('re-checks online status on non-abort fetch error', async () => {
+    global.fetch = vi.fn().mockImplementation(() => {
+      // Simulate going offline during fetch
+      mockOnLine(false);
+      return Promise.reject(new TypeError('Failed to fetch'));
+    });
+
+    await expect(extractCardData('base64data')).rejects.toThrow('オフライン');
   });
 });
