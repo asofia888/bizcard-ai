@@ -11,8 +11,14 @@ export const pickFileToDataUri = async (file: File): Promise<string> => {
   return isPdf ? pdfToImage(file) : fileToDataUri(file);
 };
 
-/** <input type="file"> 全般で使うファイル種別フィルタ。 */
-export const FILE_PICKER_ACCEPT = 'image/*,application/pdf,.pdf';
+/**
+ * <input type="file"> 全般で使うファイル種別フィルタ。
+ * iOS Safari は accept に image/* を含めると OS アクションシート
+ * (写真ライブラリ / 写真を撮る / ファイル) を必ず出してしまう。
+ * 拡張子のみで指定すると Files アプリ直行になり、Files から写真も選べる。
+ */
+export const FILE_PICKER_ACCEPT =
+  '.pdf,.jpg,.jpeg,.png,.heic,.heif,.webp,.gif';
 
 import { useEffect, useState } from 'react';
 
