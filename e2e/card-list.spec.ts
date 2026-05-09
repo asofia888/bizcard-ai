@@ -77,10 +77,9 @@ test.describe('カード一覧画面', () => {
     await expect(page.getByText('CSVエクスポート')).toBeVisible();
   });
 
-  test('FABボタンからカメラ画面に遷移する', async ({ page }) => {
-    await page.getByLabel('名刺を撮影').click();
-
-    // カメラ画面が表示される（カメラアクセスできなくてもUI自体は表示）
-    await expect(page.getByText('名刺をガイドに合わせて撮影').or(page.getByText('カメラの使用が許可されていません'))).toBeVisible();
+  test('FABがファイル選択 input を内包している', async ({ page }) => {
+    const fab = page.getByLabel('名刺ファイルを追加');
+    await expect(fab).toBeVisible();
+    await expect(fab.locator('input[type="file"]')).toHaveCount(1);
   });
 });

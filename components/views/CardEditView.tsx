@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { BusinessCard, ExtractionStatus } from '../../types';
-import { ArrowLeftIcon, CheckIcon, CameraIcon, UploadIcon } from '../Icons';
+import { ArrowLeftIcon, CheckIcon, UploadIcon } from '../Icons';
 import { useDialog } from '../Dialog';
 import { useImageAspect, pickFileToDataUri, FILE_PICKER_ACCEPT } from '../../utils/imageUtils';
 
@@ -16,8 +16,7 @@ interface CardEditViewProps {
   tempImageBack: string | null;
   onSave: (card: BusinessCard) => void;
   onCancel: () => void;
-  onScanBack: () => void;
-  onAddBackFromFile?: (imageData: string) => void;
+  onAddBackFromFile: (imageData: string) => void;
 }
 
 export const CardEditView: React.FC<CardEditViewProps> = ({
@@ -28,7 +27,6 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
   tempImageBack,
   onSave,
   onCancel,
-  onScanBack,
   onAddBackFromFile,
 }) => {
   const { showToast } = useDialog();
@@ -90,7 +88,7 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
   const handleBackFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ''; // 同じファイルを連続選択できるようリセット
-    if (!file || !onAddBackFromFile) return;
+    if (!file) return;
     try {
       onAddBackFromFile(await pickFileToDataUri(file));
     } catch (err: any) {
@@ -170,7 +168,7 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
             </div>
           )}
 
-          {/* 裏面スキャンセクション */}
+          {/* 裏面ファイル読み込みセクション */}
           {tempImageBack ? (
             <>
               <div
@@ -182,50 +180,27 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
                   <p className="text-white text-[11px] bg-black/50 px-3 py-0.5 rounded-full backdrop-blur-sm">裏面</p>
                 </div>
               </div>
-              <div className={`grid ${onAddBackFromFile ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
-                <button
-                  type="button"
-                  onClick={onScanBack}
-                  className="py-3 text-sm font-semibold text-slate-500 hover:bg-slate-100 rounded-2xl border border-slate-200 transition-colors flex items-center justify-center gap-2"
-                >
-                  <CameraIcon className="w-4 h-4" /> 裏面を再撮影
-                </button>
-                {onAddBackFromFile && (
-                  <label className="py-3 text-sm font-semibold text-slate-500 hover:bg-slate-100 rounded-2xl border border-slate-200 transition-colors flex items-center justify-center gap-2 cursor-pointer">
-                    <UploadIcon className="w-4 h-4" /> ファイルから差し替え
-                    <input
-                      type="file"
-                      accept={FILE_PICKER_ACCEPT}
-                      onChange={handleBackFileChange}
-                      className="hidden"
-                    />
-                  </label>
-                )}
-              </div>
+              <label className="w-full py-3 text-sm font-semibold text-slate-500 hover:bg-slate-100 rounded-2xl border border-slate-200 transition-colors flex items-center justify-center gap-2 cursor-pointer">
+                <UploadIcon className="w-4 h-4" /> 裏面のファイルを差し替え
+                <input
+                  type="file"
+                  accept={FILE_PICKER_ACCEPT}
+                  onChange={handleBackFileChange}
+                  className="hidden"
+                />
+              </label>
             </>
           ) : (
-            <div className="space-y-2">
-              <button
-                type="button"
-                onClick={onScanBack}
-                className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 hover:border-brand-300 hover:text-brand-500 hover:bg-brand-50 transition-all flex flex-col items-center gap-1.5"
-              >
-                <CameraIcon className="w-6 h-6" />
-                <span className="text-sm font-semibold">裏面を撮影する（任意）</span>
-              </button>
-              {onAddBackFromFile && (
-                <label className="w-full py-3 border border-dashed border-slate-200 rounded-2xl text-slate-400 hover:border-brand-300 hover:text-brand-500 hover:bg-brand-50 transition-all flex items-center justify-center gap-2 cursor-pointer">
-                  <UploadIcon className="w-4 h-4" />
-                  <span className="text-xs font-semibold">画像 / PDF ファイルから読み込む</span>
-                  <input
-                    type="file"
-                    accept={FILE_PICKER_ACCEPT}
-                    onChange={handleBackFileChange}
-                    className="hidden"
-                  />
-                </label>
-              )}
-            </div>
+            <label className="w-full py-4 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 hover:border-brand-300 hover:text-brand-500 hover:bg-brand-50 transition-all flex flex-col items-center gap-1.5 cursor-pointer">
+              <UploadIcon className="w-6 h-6" />
+              <span className="text-sm font-semibold">裏面のファイルを読み込む（任意）</span>
+              <input
+                type="file"
+                accept={FILE_PICKER_ACCEPT}
+                onChange={handleBackFileChange}
+                className="hidden"
+              />
+            </label>
           )}
 
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">

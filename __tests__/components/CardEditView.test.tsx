@@ -11,7 +11,7 @@ const defaultProps = {
   tempImageBack: null,
   onSave: vi.fn(),
   onCancel: vi.fn(),
-  onScanBack: vi.fn(),
+  onAddBackFromFile: vi.fn(),
 };
 
 function renderWithDialog(ui: React.ReactElement) {
@@ -69,8 +69,8 @@ describe('CardEditView', () => {
     expect(screen.getByLabelText('戻る')).toBeDefined();
   });
 
-  it('shows scan back button when no back image', () => {
+  it('shows back-of-card file picker when no back image', () => {
     renderWithDialog(<CardEditView {...defaultProps} />);
-    expect(screen.getByText('裏面を撮影する（任意）')).toBeDefined();
+    expect(screen.getByText('裏面のファイルを読み込む（任意）')).toBeDefined();
   });
 });

@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
-import { CameraCapture } from './components/CameraCapture';
 import { extractCardData } from './services/geminiService';
 import { rotateImage } from './utils/imageUtils';
 import { perspectiveCorrect, normalizeCorners } from './utils/perspectiveTransform';
@@ -26,7 +25,6 @@ const VIEW_DEPTH: Record<ViewState, number> = {
   DETAIL: 1,
   ADJUST: 2,
   EDIT: 3,
-  CAMERA: 4,
 };
 
 export default function App() {
@@ -50,10 +48,9 @@ export default function App() {
     setView(next);
   };
 
-  // 遷移方向: 深さが増える→forward、減る→back、CAMERA→fade
-  const direction = view === 'CAMERA'
-    ? 'fade' as const
-    : VIEW_DEPTH[view] > VIEW_DEPTH[prevViewRef.current]
+  // 遷移方向: 深さが増える→forward、減る→back、同じ→fade
+  const direction =
+    VIEW_DEPTH[view] > VIEW_DEPTH[prevViewRef.current]
       ? 'forward' as const
       : VIEW_DEPTH[view] < VIEW_DEPTH[prevViewRef.current]
         ? 'back' as const
@@ -61,7 +58,8 @@ export default function App() {
   const [selectedCard, setSelectedCard] = useState<BusinessCard | null>(null);
   const [tempImage, setTempImage] = useState<string | null>(null);
   const [tempImageBack, setTempImageBack] = useState<string | null>(null);
-  const [cameraMode, setCameraMode] = useState<'FRONT' | 'BACK'>('FRONT');
+  // 取り込み中の画像が表面か裏面か。ADJUST 後の振り分けに使う。
+  const [addMode, setAddMode] = useState<'FRONT' | 'BACK'>('FRONT');
   const [adjustImage, setAdjustImage] = useState<string | null>(null);
   const [status, setStatus] = useState<ExtractionStatus>(ExtractionStatus.IDLE);
   const [extractError, setExtractError] = useState<string>('');
@@ -69,7 +67,7 @@ export default function App() {
 
   // --- Handlers ---
 
-  // 撮影直後: 表面/裏面どちらも先に4隅調整画面へ
+  // ファイル取り込み直後: 表面/裏面どちらも先に4隅調整画面へ
   const handleCapture = (imageData: string) => {
     setAdjustImage(imageData);
     navigateTo('ADJUST');
@@ -86,7 +84,7 @@ export default function App() {
       console.error('[BizCard] Perspective correction failed', e);
     }
     setAdjustImage(null);
-    if (cameraMode === 'BACK') {
+    if (addMode === 'BACK') {
       finalizeBackCapture(corrected);
     } else {
       await processFrontCapture(corrected);
@@ -98,21 +96,26 @@ export default function App() {
     const source = adjustImage;
     if (!source) return;
     setAdjustImage(null);
-    if (cameraMode === 'BACK') {
+    if (addMode === 'BACK') {
       finalizeBackCapture(source);
     } else {
       await processFrontCapture(source);
     }
   };
 
-  // 撮り直し: カメラに戻る
+  // やり直し: 取り込み元 (リスト or 編集) に戻る
   const handleAdjustCancel = () => {
     setAdjustImage(null);
-    navigateTo('CAMERA');
+    if (addMode === 'BACK') {
+      setAddMode('FRONT');
+      navigateTo('EDIT');
+    } else {
+      navigateTo('LIST');
+    }
   };
 
   const finalizeBackCapture = (imageData: string) => {
-    setCameraMode('FRONT');
+    setAddMode('FRONT');
     setTempImageBack(imageData);
     setEditInitialData(prev => ({ ...prev, imageUriBack: imageData }));
     navigateTo('EDIT');
@@ -222,21 +225,8 @@ export default function App() {
             <CardListView
                 cards={cards}
                 onSelectCard={openDetail}
-                onAddCard={() => navigateTo('CAMERA')}
-                onAddFromFile={handleCapture}
+                onAddFromFile={(imageData) => { setAddMode('FRONT'); handleCapture(imageData); }}
                 onOpenSettings={() => navigateTo('SETTINGS')}
-            />
-          </PageTransition>
-        )}
-
-        {view === 'CAMERA' && (
-          <PageTransition key="CAMERA" direction="fade">
-            <CameraCapture
-              onCapture={handleCapture}
-              onClose={() => {
-                setCameraMode('FRONT');
-                navigateTo(cameraMode === 'BACK' ? 'EDIT' : 'LIST');
-              }}
             />
           </PageTransition>
         )}
@@ -273,8 +263,7 @@ export default function App() {
                 tempImageBack={tempImageBack}
                 onSave={handleSaveFromEdit}
                 onCancel={handleCancelEdit}
-                onScanBack={() => { setCameraMode('BACK'); navigateTo('CAMERA'); }}
-                onAddBackFromFile={(imageData) => { setCameraMode('BACK'); handleCapture(imageData); }}
+                onAddBackFromFile={(imageData) => { setAddMode('BACK'); handleCapture(imageData); }}
             />
           </PageTransition>
         )}
