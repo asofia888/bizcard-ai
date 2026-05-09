@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { BusinessCard } from '../../types';
-import { CameraIcon, SearchIcon, PlusIcon, SettingsIcon, LogoIcon, UploadIcon } from '../Icons';
+import { CameraIcon, SearchIcon, PlusIcon, SettingsIcon, LogoIcon, UploadIcon, PhotoIcon } from '../Icons';
 import { cardGradient } from '../../utils/gradients';
 import { pickFileToDataUri, FILE_PICKER_ACCEPT } from '../../utils/imageUtils';
 
@@ -71,9 +71,12 @@ export const CardListView: React.FC<CardListViewProps> = ({
   onAddFromFile,
   onOpenSettings,
 }) => {
+  const [showAddSheet, setShowAddSheet] = useState(false);
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ''; // 同じファイルを連続選択できるようリセット
+    setShowAddSheet(false);
     if (!file) return;
     try {
       onAddFromFile(await pickFileToDataUri(file));
@@ -270,27 +273,71 @@ export const CardListView: React.FC<CardListViewProps> = ({
         </div>
       </div>
 
-      <div className="absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-6 flex items-center gap-3 z-30">
-        <label
-          aria-label="写真ファイルから追加"
-          className="w-12 h-12 bg-white text-brand-600 border border-slate-200 rounded-2xl shadow-md flex items-center justify-center active:scale-90 transition-all cursor-pointer"
-        >
-          <UploadIcon className="w-5 h-5" />
-          <input
-            type="file"
-            accept={FILE_PICKER_ACCEPT}
-            onChange={handleFileChange}
-            className="hidden"
-          />
-        </label>
+      <div className="absolute bottom-[calc(1.5rem+env(safe-area-inset-bottom))] right-6 z-30">
         <button
-          onClick={onAddCard}
-          aria-label="カメラで撮影して追加"
+          onClick={() => setShowAddSheet(true)}
+          aria-label="名刺を追加"
           className="w-14 h-14 bg-gradient-to-br from-brand-500 to-brand-700 hover:from-brand-600 hover:to-brand-800 text-white rounded-2xl shadow-xl shadow-brand-300 flex items-center justify-center active:scale-90 transition-all"
         >
           <PlusIcon className="w-7 h-7" />
         </button>
       </div>
+
+      {showAddSheet && (
+        <div
+          className="fixed inset-0 z-[150] bg-black/40 flex items-end justify-center"
+          onClick={() => setShowAddSheet(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="名刺の追加方法"
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-t-3xl shadow-2xl p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-3" aria-hidden="true" />
+
+            <label className="flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-slate-50 cursor-pointer">
+              <PhotoIcon className="w-5 h-5 text-brand-500" />
+              <span className="font-semibold text-slate-800 text-sm">写真ライブラリ</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={() => { setShowAddSheet(false); onAddCard(); }}
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-slate-50 text-left"
+            >
+              <CameraIcon className="w-5 h-5 text-brand-500" />
+              <span className="font-semibold text-slate-800 text-sm">写真を撮る</span>
+            </button>
+
+            <label className="flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-slate-50 cursor-pointer">
+              <UploadIcon className="w-5 h-5 text-brand-500" />
+              <span className="font-semibold text-slate-800 text-sm">ファイルを選択</span>
+              <input
+                type="file"
+                accept={FILE_PICKER_ACCEPT}
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={() => setShowAddSheet(false)}
+              className="w-full mt-1 px-4 py-3.5 rounded-xl text-slate-500 font-semibold text-sm hover:bg-slate-50"
+            >
+              キャンセル
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 };
