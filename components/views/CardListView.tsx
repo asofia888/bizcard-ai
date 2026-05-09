@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { BusinessCard } from '../../types';
-import { CameraIcon, SearchIcon, PlusIcon, SettingsIcon, LogoIcon, UploadIcon } from '../Icons';
+import { CameraIcon, SearchIcon, PlusIcon, SettingsIcon, LogoIcon, UploadIcon, PhotoIcon } from '../Icons';
 import { cardGradient } from '../../utils/gradients';
 import { pickFileToDataUri, FILE_PICKER_ACCEPT } from '../../utils/imageUtils';
 
@@ -297,6 +297,17 @@ export const CardListView: React.FC<CardListViewProps> = ({
           >
             <div className="w-10 h-1 bg-slate-200 rounded-full mx-auto mb-3" aria-hidden="true" />
 
+            <label className="flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-slate-50 cursor-pointer">
+              <PhotoIcon className="w-5 h-5 text-brand-500" />
+              <span className="font-semibold text-slate-800 text-sm">写真ライブラリ</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </label>
+
             <button
               type="button"
               onClick={() => { setShowAddSheet(false); onAddCard(); }}
@@ -308,7 +319,7 @@ export const CardListView: React.FC<CardListViewProps> = ({
 
             <label className="flex items-center gap-3 px-4 py-3.5 rounded-xl hover:bg-slate-50 cursor-pointer">
               <UploadIcon className="w-5 h-5 text-brand-500" />
-              <span className="font-semibold text-slate-800 text-sm">ファイルから読み込む（画像 / PDF）</span>
+              <span className="font-semibold text-slate-800 text-sm">ファイルを選択</span>
               <input
                 type="file"
                 accept={FILE_PICKER_ACCEPT}
