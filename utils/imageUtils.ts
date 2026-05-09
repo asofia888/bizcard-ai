@@ -1,6 +1,18 @@
-const MAX_DIMENSION = 2000;
-const JPEG_QUALITY = 0.88;
+export const MAX_DIMENSION = 2000;
+export const JPEG_QUALITY = 0.88;
 export const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+
+/**
+ * <input type="file"> で選択された 1 ファイルを data URI に変換する。
+ * PDF なら 1 ページ目を JPEG 化、それ以外は画像として読み込む。
+ */
+export const pickFileToDataUri = async (file: File): Promise<string> => {
+  const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  return isPdf ? pdfToImage(file) : fileToDataUri(file);
+};
+
+/** <input type="file"> 全般で使うファイル種別フィルタ。 */
+export const FILE_PICKER_ACCEPT = 'image/*,application/pdf,.pdf';
 
 import { useEffect, useState } from 'react';
 

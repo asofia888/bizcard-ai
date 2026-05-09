@@ -1,15 +1,17 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { XIcon, UploadIcon } from './Icons';
-import { pdfToImage } from '../utils/imageUtils';
+import {
+  MAX_DIMENSION,
+  JPEG_QUALITY,
+  pickFileToDataUri,
+  FILE_PICKER_ACCEPT,
+} from '../utils/imageUtils';
 
 interface CameraCaptureProps {
   onCapture: (imageData: string) => void;
   onClose: () => void;
 }
 
-const MAX_DIMENSION = 2000;
-const JPEG_QUALITY = 0.88;
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 // 日本の名刺標準サイズ: 91mm × 55mm（横向き）/ 55mm × 91mm（縦向き）
 const CARD_ASPECT_LANDSCAPE = 91 / 55;
 const CARD_ASPECT_PORTRAIT  = 55 / 91;
@@ -108,49 +110,11 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
     const file = event.target.files?.[0];
     event.target.value = ''; // 同じファイルを連続選択できるようリセット
     if (!file) return;
-
-    if (file.size > MAX_FILE_SIZE) {
-      setError('ファイルサイズが大きすぎます（上限: 20MB）。');
-      return;
+    try {
+      onCapture(await pickFileToDataUri(file));
+    } catch (err: any) {
+      setError(err?.message || 'ファイルの読み込みに失敗しました。');
     }
-
-    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
-    if (isPdf) {
-      try {
-        const dataUri = await pdfToImage(file);
-        onCapture(dataUri);
-      } catch (err: any) {
-        setError(err?.message || 'PDFの読み込みに失敗しました。');
-      }
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const original = reader.result as string;
-      const img = new Image();
-      img.onload = () => {
-        const s = Math.min(1, MAX_DIMENSION / Math.max(img.width, img.height));
-        const c = document.createElement('canvas');
-        c.width = Math.round(img.width * s);
-        c.height = Math.round(img.height * s);
-        const ctx2 = c.getContext('2d');
-        if (ctx2) {
-          ctx2.drawImage(img, 0, 0, c.width, c.height);
-          onCapture(c.toDataURL('image/jpeg', JPEG_QUALITY));
-        } else {
-          onCapture(original);
-        }
-      };
-      img.onerror = () => {
-        setError('画像の読み込みに失敗しました。別のファイルをお試しください。');
-      };
-      img.src = original;
-    };
-    reader.onerror = () => {
-      setError('ファイルの読み込みに失敗しました。');
-    };
-    reader.readAsDataURL(file);
   };
 
   return (
@@ -170,7 +134,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
           <label className="bg-brand-500 hover:bg-brand-600 text-white px-6 py-3 rounded-full cursor-pointer flex items-center gap-2">
             <UploadIcon className="w-5 h-5" />
             <span>画像をアップロード</span>
-            <input type="file" accept="image/*,application/pdf,.pdf" onChange={handleFileUpload} className="hidden" />
+            <input type="file" accept={FILE_PICKER_ACCEPT} onChange={handleFileUpload} className="hidden" />
           </label>
         </div>
       ) : (
@@ -238,7 +202,7 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
                 <UploadIcon className="w-6 h-6" />
               </div>
               <span className="text-xs">写真選択</span>
-              <input type="file" accept="image/*,application/pdf,.pdf" onChange={handleFileUpload} className="hidden" />
+              <input type="file" accept={FILE_PICKER_ACCEPT} onChange={handleFileUpload} className="hidden" />
             </label>
 
             <button

@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { BusinessCard, ExtractionStatus } from '../../types';
 import { ArrowLeftIcon, CheckIcon, CameraIcon, UploadIcon } from '../Icons';
 import { useDialog } from '../Dialog';
-import { useImageAspect, fileToDataUri, pdfToImage } from '../../utils/imageUtils';
+import { useImageAspect, pickFileToDataUri, FILE_PICKER_ACCEPT } from '../../utils/imageUtils';
 
 // 名刺の横向き(91/55)と縦向き(55/91)の中間で切り替え
 const cardAspectFor = (a: number | undefined) => (a !== undefined && a < 1 ? '55/91' : '91/55');
@@ -92,9 +92,7 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
     e.target.value = ''; // 同じファイルを連続選択できるようリセット
     if (!file || !onAddBackFromFile) return;
     try {
-      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
-      const dataUri = isPdf ? await pdfToImage(file) : await fileToDataUri(file);
-      onAddBackFromFile(dataUri);
+      onAddBackFromFile(await pickFileToDataUri(file));
     } catch (err: any) {
       showToast(err?.message || 'ファイルの読み込みに失敗しました。', 'error');
     }
@@ -197,7 +195,7 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
                     <UploadIcon className="w-4 h-4" /> ファイルから差し替え
                     <input
                       type="file"
-                      accept="image/*,application/pdf,.pdf"
+                      accept={FILE_PICKER_ACCEPT}
                       onChange={handleBackFileChange}
                       className="hidden"
                     />
@@ -221,7 +219,7 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
                   <span className="text-xs font-semibold">画像 / PDF ファイルから読み込む</span>
                   <input
                     type="file"
-                    accept="image/*,application/pdf,.pdf"
+                    accept={FILE_PICKER_ACCEPT}
                     onChange={handleBackFileChange}
                     className="hidden"
                   />
