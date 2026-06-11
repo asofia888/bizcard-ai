@@ -25,6 +25,7 @@ describe('extractCardData', () => {
       ok: true,
       json: () => Promise.resolve(mockData),
     });
+    localStorage.setItem('bizcard_access_token', 'stored-token');
 
     await extractCardData('base64data');
 
@@ -32,11 +33,25 @@ describe('extractCardData', () => {
       '/api/extract',
       expect.objectContaining({
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-App-Token': 'stored-token',
+        },
         body: JSON.stringify({ base64Image: 'base64data' }),
         signal: expect.any(AbortSignal),
       })
     );
+    localStorage.removeItem('bizcard_access_token');
+  });
+
+  it('throws token error on 401 without JSON body', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: () => Promise.reject(new Error('not json')),
+    });
+
+    await expect(extractCardData('base64data')).rejects.toThrow('アクセストークン');
   });
 
   it('returns parsed JSON on success', async () => {
@@ -67,7 +82,7 @@ describe('extractCardData', () => {
       json: () => Promise.reject(new Error('not json')),
     });
 
-    await expect(extractCardData('base64data')).rejects.toThrow('Server error');
+    await expect(extractCardData('base64data')).rejects.toThrow('AIサーバーで一時的なエラーが発生しました（502）');
   });
 
   it('throws offline error when navigator.onLine is false before fetch', async () => {
