@@ -1,5 +1,7 @@
-import React from 'react';
-import { ArrowLeftIcon, SaveIcon, RotateCcwIcon, DownloadIcon } from '../Icons';
+import React, { useState } from 'react';
+import { ArrowLeftIcon, SaveIcon, RotateCcwIcon, DownloadIcon, CheckIcon } from '../Icons';
+import { ACCESS_TOKEN_STORAGE_KEY } from '../../services/geminiService';
+import { useDialog } from '../Dialog';
 
 interface SettingsViewProps {
   cardCount: number;
@@ -18,6 +20,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onExportCSV,
   onBack
 }) => {
+  const { showToast } = useDialog();
+  const [accessToken, setAccessToken] = useState(
+    () => localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) ?? ''
+  );
+
+  const saveAccessToken = () => {
+    localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, accessToken.trim());
+    showToast('アクセストークンを保存しました。', 'success');
+  };
+
   return (
     <>
       <header className="bg-white/80 backdrop-blur-md shadow-sm border-b border-slate-100 p-4 sticky top-0 z-20">
@@ -85,6 +97,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 text-xs text-amber-800 leading-relaxed">
             <strong>注意:</strong> 復元を行うと、現在アプリ内に保存されているデータはすべて削除され、バックアップ時点の内容で上書きされます。
+          </div>
+
+          {/* AI解析のアクセストークン */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 space-y-3">
+            <div>
+              <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1.5">
+                AI解析アクセストークン
+              </label>
+              <input
+                type="password"
+                value={accessToken}
+                onChange={(e) => setAccessToken(e.target.value)}
+                placeholder="サーバーに設定したトークンを入力"
+                autoComplete="off"
+                className="w-full bg-slate-100 px-3 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 focus:bg-white transition-all text-sm placeholder-slate-400"
+              />
+            </div>
+            <button
+              onClick={saveAccessToken}
+              className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 text-sm"
+            >
+              <CheckIcon className="w-4 h-4" /> トークンを保存
+            </button>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              AI解析を利用するための合言葉です。サーバーの APP_ACCESS_TOKEN と同じ値を一度入力すれば、この端末に保存されます。
+            </p>
           </div>
 
           <div className="text-center pt-2">

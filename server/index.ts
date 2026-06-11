@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { extractCard, ExtractError } from '../services/extractCard.js';
+import { verifyAccessToken } from '../services/auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -14,6 +15,12 @@ const PORT = process.env.PORT || 3001;
 
 // --- Gemini API endpoint ---
 app.post('/api/extract', async (req, res) => {
+  const auth = verifyAccessToken(req.headers['x-app-token']);
+  if (!auth.ok) {
+    res.status(auth.status).json({ error: auth.error });
+    return;
+  }
+
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     res.status(500).json({ error: 'GEMINI_API_KEY is not configured on the server.' });

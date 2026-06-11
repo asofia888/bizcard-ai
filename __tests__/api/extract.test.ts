@@ -1,8 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+const TEST_TOKEN = 'test-access-token';
+
 // Minimal Express-like req/res helpers
-function createReq(body?: any) {
-  return { body: body ?? {} } as any;
+function createReq(body?: any, headers?: Record<string, string>) {
+  return {
+    body: body ?? {},
+    headers: headers ?? { 'x-app-token': TEST_TOKEN },
+  } as any;
 }
 
 function createRes() {
@@ -59,14 +64,40 @@ beforeEach(async () => {
     return { default: expressFn };
   });
 
-  // Set GEMINI_API_KEY by default (individual tests can override)
+  // Set GEMINI_API_KEY / APP_ACCESS_TOKEN by default (individual tests can override)
   process.env.GEMINI_API_KEY = 'test-key';
+  process.env.APP_ACCESS_TOKEN = TEST_TOKEN;
 
   await import('../../server/index.ts');
   handler = capturedHandlers['POST /api/extract'];
 });
 
 describe('POST /api/extract', () => {
+  it('returns 500 when APP_ACCESS_TOKEN is not configured on the server', async () => {
+    delete process.env.APP_ACCESS_TOKEN;
+    const req = createReq({ base64Image: 'abc' });
+    const res = createRes();
+    await handler(req, res);
+    expect(res.statusCode).toBe(500);
+    expect(res.body.error).toContain('APP_ACCESS_TOKEN');
+  });
+
+  it('returns 401 when x-app-token header is missing', async () => {
+    const req = createReq({ base64Image: 'abc' }, {});
+    const res = createRes();
+    await handler(req, res);
+    expect(res.statusCode).toBe(401);
+    expect(res.body.error).toContain('アクセストークン');
+  });
+
+  it('returns 401 when x-app-token header is wrong', async () => {
+    const req = createReq({ base64Image: 'abc' }, { 'x-app-token': 'wrong-token' });
+    const res = createRes();
+    await handler(req, res);
+    expect(res.statusCode).toBe(401);
+    expect(res.body.error).toContain('アクセストークン');
+  });
+
   it('returns 500 when GEMINI_API_KEY is not set', async () => {
     delete process.env.GEMINI_API_KEY;
     const req = createReq({ base64Image: 'abc' });

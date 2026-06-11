@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { extractCard, ExtractError } from '../services/extractCard.js';
+import { verifyAccessToken } from '../services/auth.js';
 
 export const maxDuration = 60;
 
@@ -16,6 +17,11 @@ export const config = {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const auth = verifyAccessToken(req.headers['x-app-token']);
+  if (!auth.ok) {
+    return res.status(auth.status).json({ error: auth.error });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
