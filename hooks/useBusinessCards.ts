@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useContext } from 'react';
 import { BusinessCard } from '../types';
-import { saveImage, getAllImages, deleteImage } from '../utils/imageDB';
+import { saveImage, getAllImages, deleteImage, clearImages } from '../utils/imageDB';
 import { generateThumbnail } from '../utils/imageUtils';
 import { DialogContext } from '../components/Dialog';
 
@@ -32,11 +32,55 @@ function loadMetadata(): BusinessCard[] {
   try {
     const saved = localStorage.getItem('bizcard_data');
     const cards = saved ? JSON.parse(saved) : INITIAL_CARDS;
+    if (!Array.isArray(cards)) return INITIAL_CARDS;
     // 旧データ正規化: imageUriBack / thumbUri が無いケースに備える
     return cards.map((c: any) => ({ imageUriBack: null, thumbUri: null, ...c }));
   } catch {
     return INITIAL_CARDS;
   }
+}
+
+/**
+ * 復元データの1件を検証・正規化する。
+ * id を持たない壊れたエントリは null（復元対象外）。
+ * 文字列フィールドの型違いは空文字に、欠損した createdAt は現在時刻に補正する。
+ */
+export function sanitizeCard(raw: unknown): BusinessCard | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const c = raw as Record<string, unknown>;
+  if (typeof c.id !== 'string' || !c.id) return null;
+  const str = (v: unknown) => (typeof v === 'string' ? v : '');
+  const dataUri = (v: unknown) => (typeof v === 'string' && v.startsWith('data:') ? v : null);
+  return {
+    id: c.id,
+    name: str(c.name),
+    title: str(c.title),
+    company: str(c.company),
+    country: str(c.country),
+    email: str(c.email),
+    phone: str(c.phone),
+    website: str(c.website),
+    address: str(c.address),
+    note: str(c.note),
+    tags: Array.isArray(c.tags) ? c.tags.filter((t): t is string => typeof t === 'string') : [],
+    imageUri: dataUri(c.imageUri),
+    imageUriBack: dataUri(c.imageUriBack),
+    thumbUri: dataUri(c.thumbUri),
+    createdAt: typeof c.createdAt === 'number' && Number.isFinite(c.createdAt) ? c.createdAt : Date.now(),
+  };
+}
+
+/** 復元データ全体を検証し、有効なカードのみを返す（id 重複は先勝ち） */
+export function sanitizeCards(raw: unknown[]): BusinessCard[] {
+  const seen = new Set<string>();
+  const result: BusinessCard[] = [];
+  for (const entry of raw) {
+    const card = sanitizeCard(entry);
+    if (!card || seen.has(card.id)) continue;
+    seen.add(card.id);
+    result.push(card);
+  }
+  return result;
 }
 
 /** localStorage にメタデータのみ保存（画像データは除外） */
@@ -272,34 +316,41 @@ export const useBusinessCards = () => {
       const parsed = JSON.parse(text);
 
       // v1形式（配列）またはv2形式（{ version, cards }）に対応
-      let cardsData: BusinessCard[];
+      let rawCards: unknown[];
       if (Array.isArray(parsed)) {
-        cardsData = parsed; // 旧形式
-      } else if (parsed.version >= 2 && Array.isArray(parsed.cards)) {
-        cardsData = parsed.cards; // 新形式（画像含む）
+        rawCards = parsed; // 旧形式
+      } else if (parsed && parsed.version >= 2 && Array.isArray(parsed.cards)) {
+        rawCards = parsed.cards; // 新形式（画像含む）
       } else {
         throw new Error('Invalid backup format');
       }
 
+      // 壊れたエントリ（id 欠損・型違い）を除外し、フィールドを正規化する
+      const cardsData = sanitizeCards(rawCards);
+      if (cardsData.length === 0) {
+        showToast('バックアップに有効な名刺データが含まれていません。', 'error');
+        return;
+      }
+      const skipped = rawCards.length - cardsData.length;
+
+      // 検証が通ってから旧画像を全削除（置き換え前のカードの孤児画像を残さない）
+      await clearImages();
+
       // 画像を IndexedDB に保存（表面・裏面）
-      const imageCards = cardsData.filter(
-        c => c.imageUri && typeof c.imageUri === 'string' && c.imageUri.startsWith('data:')
-      );
+      const imageCards = cardsData.filter(c => c.imageUri);
       if (imageCards.length > 0) {
         await Promise.all(imageCards.map(c => saveImage(c.id, c.imageUri as string)));
       }
-      const backImageCards = cardsData.filter(
-        (c: any) => c.imageUriBack && typeof c.imageUriBack === 'string' && c.imageUriBack.startsWith('data:')
-      );
+      const backImageCards = cardsData.filter(c => c.imageUriBack);
       if (backImageCards.length > 0) {
-        await Promise.all(backImageCards.map((c: any) => saveImage(c.id + BACK_SUFFIX, c.imageUriBack as string)));
+        await Promise.all(backImageCards.map(c => saveImage(c.id + BACK_SUFFIX, c.imageUriBack as string)));
       }
 
       // 復元データに含まれるサムネを優先採用、なければフル画像から再生成して保存
       const thumbResults = await Promise.all(
-        imageCards.map(async (c: any) => {
-          if (c.thumbUri && typeof c.thumbUri === 'string' && c.thumbUri.startsWith('data:')) {
-            return { id: c.id, thumb: c.thumbUri as string };
+        imageCards.map(async c => {
+          if (c.thumbUri) {
+            return { id: c.id, thumb: c.thumbUri };
           }
           try {
             const thumb = await generateThumbnail(c.imageUri as string);
@@ -323,12 +374,17 @@ export const useBusinessCards = () => {
       const cardsWithImages = cardsData.map(c => ({
         ...c,
         imageUri:     images[c.id]                ?? null,
-        imageUriBack: images[c.id + BACK_SUFFIX]  ?? (c as any).imageUriBack ?? null,
+        imageUriBack: images[c.id + BACK_SUFFIX]  ?? null,
         thumbUri:     images[c.id + THUMB_SUFFIX] ?? null,
       }));
 
       setCards(cardsWithImages);
-      showToast(`${cardsData.length}件の名刺を復元しました。`, 'success');
+      showToast(
+        skipped > 0
+          ? `${cardsData.length}件の名刺を復元しました（壊れていた${skipped}件はスキップ）。`
+          : `${cardsData.length}件の名刺を復元しました。`,
+        'success'
+      );
     } catch (e) {
       console.error('Restore failed:', e);
       showToast('復元に失敗しました。バックアップファイルを確認してください。', 'error');

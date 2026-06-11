@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useBusinessCards } from '../../hooks/useBusinessCards';
+import { useBusinessCards, sanitizeCard, sanitizeCards } from '../../hooks/useBusinessCards';
 import { BusinessCard } from '../../types';
 
 const origConfirm = window.confirm;
@@ -281,5 +281,79 @@ describe('useBusinessCards', () => {
 
     expect(csvContent).toContain('VIP');
     expect(csvContent).toContain('展示会');
+  });
+});
+
+// --- バックアップ復元データの検証・正規化 ---
+describe('sanitizeCard', () => {
+  it('returns null for non-object entries', () => {
+    expect(sanitizeCard(null)).toBeNull();
+    expect(sanitizeCard('string')).toBeNull();
+    expect(sanitizeCard(123)).toBeNull();
+    expect(sanitizeCard(undefined)).toBeNull();
+  });
+
+  it('returns null when id is missing or not a string', () => {
+    expect(sanitizeCard({ name: 'No ID' })).toBeNull();
+    expect(sanitizeCard({ id: '', name: 'Empty ID' })).toBeNull();
+    expect(sanitizeCard({ id: 42, name: 'Numeric ID' })).toBeNull();
+  });
+
+  it('keeps valid fields as-is', () => {
+    const valid = makeCard({ id: 'valid-1', name: '田中', tags: ['VIP'] });
+    expect(sanitizeCard(valid)).toEqual(valid);
+  });
+
+  it('coerces non-string fields to empty strings', () => {
+    const card = sanitizeCard({ id: 'x', name: 123, company: null, note: { evil: true } });
+    expect(card).not.toBeNull();
+    expect(card!.name).toBe('');
+    expect(card!.company).toBe('');
+    expect(card!.note).toBe('');
+  });
+
+  it('drops non-string tags and non-array tags field', () => {
+    expect(sanitizeCard({ id: 'x', tags: ['ok', 1, null, 'good'] })!.tags).toEqual(['ok', 'good']);
+    expect(sanitizeCard({ id: 'x', tags: 'not-array' })!.tags).toEqual([]);
+  });
+
+  it('accepts only data: URIs for image fields', () => {
+    const card = sanitizeCard({
+      id: 'x',
+      imageUri: 'data:image/jpeg;base64,abc',
+      imageUriBack: 'https://evil.example/img.jpg',
+      thumbUri: 12345,
+    });
+    expect(card!.imageUri).toBe('data:image/jpeg;base64,abc');
+    expect(card!.imageUriBack).toBeNull();
+    expect(card!.thumbUri).toBeNull();
+  });
+
+  it('falls back to current time when createdAt is invalid', () => {
+    const before = Date.now();
+    const card = sanitizeCard({ id: 'x', createdAt: 'yesterday' });
+    expect(card!.createdAt).toBeGreaterThanOrEqual(before);
+    expect(sanitizeCard({ id: 'x', createdAt: NaN })!.createdAt).toBeGreaterThanOrEqual(before);
+    expect(sanitizeCard({ id: 'x', createdAt: 1700000000000 })!.createdAt).toBe(1700000000000);
+  });
+});
+
+describe('sanitizeCards', () => {
+  it('filters out broken entries and keeps valid ones', () => {
+    const result = sanitizeCards([makeCard({ id: 'a' }), null, 'junk', { noId: true }, makeCard({ id: 'b' })]);
+    expect(result.map(c => c.id)).toEqual(['a', 'b']);
+  });
+
+  it('deduplicates by id keeping the first occurrence', () => {
+    const result = sanitizeCards([
+      makeCard({ id: 'dup', name: '先' }),
+      makeCard({ id: 'dup', name: '後' }),
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('先');
+  });
+
+  it('returns empty array for entirely invalid input', () => {
+    expect(sanitizeCards([null, 1, 'x', {}])).toEqual([]);
   });
 });

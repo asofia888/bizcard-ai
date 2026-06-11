@@ -54,6 +54,17 @@ export async function getAllImages(): Promise<Record<string, string>> {
   });
 }
 
+/** 全画像を削除する。バックアップ復元時に旧データの孤児画像を残さないために使う */
+export async function clearImages(): Promise<void> {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 export async function deleteImage(cardId: string): Promise<void> {
   const db = await getDB();
   return new Promise((resolve, reject) => {
