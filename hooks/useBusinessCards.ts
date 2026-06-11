@@ -398,6 +398,12 @@ export const useBusinessCards = () => {
     }
 
     const escapeCSV = (val: string) => `"${(val || '').replace(/"/g, '""')}"`;
+    // ISO 8601 (空白区切り・ローカル時刻)。toLocaleString() は環境依存で Excel のパースが不安定なため使わない
+    const formatDateTime = (ts: number) => {
+      const d = new Date(ts);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    };
     const headers = ['ID', '氏名', '会社名', '役職', '国', 'メール', '電話番号', 'Webサイト', '住所', 'メモ', 'タグ', '作成日'];
     const rows = cards.map(c => [
       escapeCSV(c.id),
@@ -411,7 +417,7 @@ export const useBusinessCards = () => {
       escapeCSV(c.address),
       escapeCSV(c.note),
       escapeCSV((c.tags || []).join('; ')),
-      escapeCSV(new Date(c.createdAt).toLocaleString()),
+      escapeCSV(formatDateTime(c.createdAt)),
     ]);
 
     const csvContent = [

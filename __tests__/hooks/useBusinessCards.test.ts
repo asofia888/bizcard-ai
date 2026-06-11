@@ -257,6 +257,31 @@ describe('useBusinessCards', () => {
     expect(mockClick).not.toHaveBeenCalled();
   });
 
+  it('formats createdAt as ISO 8601 (YYYY-MM-DD HH:MM:SS) in CSV export', () => {
+    const card = makeCard({ id: 'date-test', createdAt: new Date(2026, 5, 11, 9, 5, 3).getTime() });
+    localStorage.setItem('bizcard_data', JSON.stringify([card]));
+
+    let csvContent = '';
+    const OrigBlob = globalThis.Blob;
+    globalThis.Blob = class MockBlob extends OrigBlob {
+      constructor(parts: any[], options?: any) {
+        super(parts, options);
+        if (parts.length > 1 && typeof parts[1] === 'string') {
+          csvContent = parts[1];
+        }
+      }
+    } as any;
+
+    const { result } = renderHook(() => useBusinessCards());
+    act(() => {
+      result.current.exportCSV();
+    });
+
+    globalThis.Blob = OrigBlob;
+
+    expect(csvContent).toContain('"2026-06-11 09:05:03"');
+  });
+
   it('includes tags in CSV export', () => {
     const card = makeCard({ tags: ['VIP', '展示会'] });
     localStorage.setItem('bizcard_data', JSON.stringify([card]));
