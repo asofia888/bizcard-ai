@@ -26,12 +26,18 @@ import { useEffect, useState } from 'react';
 export function useImageAspect(src: string | null | undefined): number | undefined {
   const [aspect, setAspect] = useState<number | undefined>(undefined);
   useEffect(() => {
-    if (!src) { setAspect(undefined); return; }
+    // src が切り替わったら前の画像の aspect を引き継がない
+    setAspect(undefined);
+    if (!src) return;
     let cancelled = false;
     const img = new Image();
     img.onload = () => {
       if (cancelled) return;
       if (img.width > 0 && img.height > 0) setAspect(img.width / img.height);
+    };
+    // 壊れた画像は undefined のまま確定（呼び出し側は横向き既定値で表示）
+    img.onerror = () => {
+      if (!cancelled) setAspect(undefined);
     };
     img.src = src;
     return () => { cancelled = true; };
