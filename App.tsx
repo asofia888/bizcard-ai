@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useReducer } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 import { extractCardData } from './services/geminiService';
@@ -26,6 +26,82 @@ const VIEW_DEPTH: Record<ViewState, number> = {
   ADJUST: 2,
   EDIT: 3,
 };
+
+// ── 取り込みフロー (ファイル選択 → 4隅調整 → AI解析 → 編集) の状態 ──
+// 個別 useState だと遷移の組み合わせ漏れが起きやすいため、1つの reducer で一貫管理する
+interface CaptureState {
+  addMode: 'FRONT' | 'BACK';        // 取り込み中の画像が表面か裏面か。ADJUST 後の振り分けに使う
+  adjustImage: string | null;       // 4隅調整画面に渡す元画像
+  tempImage: string | null;         // 編集画面の表面プレビュー
+  tempImageBack: string | null;     // 編集画面の裏面プレビュー
+  status: ExtractionStatus;
+  extractError: string;
+  editInitialData: Partial<BusinessCard>;
+}
+
+type CaptureAction =
+  | { type: 'START_ADJUST'; image: string; mode: 'FRONT' | 'BACK' }
+  | { type: 'ADJUST_CANCEL' }
+  | { type: 'BACK_CAPTURED'; image: string }
+  | { type: 'FRONT_PROCESSING'; image: string; id: string; createdAt: number }
+  | { type: 'EXTRACT_SUCCESS'; data: Partial<BusinessCard>; image: string }
+  | { type: 'EXTRACT_ERROR'; message: string }
+  | { type: 'START_EDIT'; card: BusinessCard }
+  | { type: 'RESET' };
+
+const initialCaptureState: CaptureState = {
+  addMode: 'FRONT',
+  adjustImage: null,
+  tempImage: null,
+  tempImageBack: null,
+  status: ExtractionStatus.IDLE,
+  extractError: '',
+  editInitialData: {},
+};
+
+function captureReducer(state: CaptureState, action: CaptureAction): CaptureState {
+  switch (action.type) {
+    case 'START_ADJUST':
+      return { ...state, addMode: action.mode, adjustImage: action.image };
+    case 'ADJUST_CANCEL':
+      return { ...state, adjustImage: null, addMode: 'FRONT' };
+    case 'BACK_CAPTURED':
+      return {
+        ...state,
+        addMode: 'FRONT',
+        adjustImage: null,
+        tempImageBack: action.image,
+        editInitialData: { ...state.editInitialData, imageUriBack: action.image },
+      };
+    case 'FRONT_PROCESSING':
+      return {
+        ...state,
+        adjustImage: null,
+        tempImage: action.image,
+        status: ExtractionStatus.PROCESSING,
+        extractError: '',
+        editInitialData: { id: action.id, imageUri: action.image, createdAt: action.createdAt },
+      };
+    case 'EXTRACT_SUCCESS':
+      return {
+        ...state,
+        tempImage: action.image,
+        status: ExtractionStatus.SUCCESS,
+        editInitialData: { ...state.editInitialData, ...action.data, imageUri: action.image },
+      };
+    case 'EXTRACT_ERROR':
+      return { ...state, status: ExtractionStatus.ERROR, extractError: action.message };
+    case 'START_EDIT':
+      return {
+        ...initialCaptureState,
+        tempImage: action.card.imageUri,
+        tempImageBack: action.card.imageUriBack,
+        editInitialData: action.card,
+      };
+    case 'RESET':
+      return initialCaptureState;
+  }
+}
 
 export default function App() {
   const { 
@@ -56,20 +132,14 @@ export default function App() {
         ? 'back' as const
         : 'fade' as const;
   const [selectedCard, setSelectedCard] = useState<BusinessCard | null>(null);
-  const [tempImage, setTempImage] = useState<string | null>(null);
-  const [tempImageBack, setTempImageBack] = useState<string | null>(null);
-  // 取り込み中の画像が表面か裏面か。ADJUST 後の振り分けに使う。
-  const [addMode, setAddMode] = useState<'FRONT' | 'BACK'>('FRONT');
-  const [adjustImage, setAdjustImage] = useState<string | null>(null);
-  const [status, setStatus] = useState<ExtractionStatus>(ExtractionStatus.IDLE);
-  const [extractError, setExtractError] = useState<string>('');
-  const [editInitialData, setEditInitialData] = useState<Partial<BusinessCard>>({});
+  const [capture, dispatch] = useReducer(captureReducer, initialCaptureState);
+  const { addMode, adjustImage, tempImage, tempImageBack, status, extractError, editInitialData } = capture;
 
   // --- Handlers ---
 
   // ファイル取り込み直後: 表面/裏面どちらも先に4隅調整画面へ
-  const handleCapture = (imageData: string) => {
-    setAdjustImage(imageData);
+  const handleCapture = (imageData: string, mode: 'FRONT' | 'BACK') => {
+    dispatch({ type: 'START_ADJUST', image: imageData, mode });
     navigateTo('ADJUST');
   };
 
@@ -83,7 +153,6 @@ export default function App() {
     } catch (e) {
       console.error('[BizCard] Perspective correction failed', e);
     }
-    setAdjustImage(null);
     if (addMode === 'BACK') {
       finalizeBackCapture(corrected);
     } else {
@@ -95,7 +164,6 @@ export default function App() {
   const handleAdjustSkip = async () => {
     const source = adjustImage;
     if (!source) return;
-    setAdjustImage(null);
     if (addMode === 'BACK') {
       finalizeBackCapture(source);
     } else {
@@ -105,33 +173,18 @@ export default function App() {
 
   // やり直し: 取り込み元 (リスト or 編集) に戻る
   const handleAdjustCancel = () => {
-    setAdjustImage(null);
-    if (addMode === 'BACK') {
-      setAddMode('FRONT');
-      navigateTo('EDIT');
-    } else {
-      navigateTo('LIST');
-    }
+    const wasBack = addMode === 'BACK';
+    dispatch({ type: 'ADJUST_CANCEL' });
+    navigateTo(wasBack ? 'EDIT' : 'LIST');
   };
 
   const finalizeBackCapture = (imageData: string) => {
-    setAddMode('FRONT');
-    setTempImageBack(imageData);
-    setEditInitialData(prev => ({ ...prev, imageUriBack: imageData }));
+    dispatch({ type: 'BACK_CAPTURED', image: imageData });
     navigateTo('EDIT');
   };
 
   const processFrontCapture = async (imageData: string) => {
-    setTempImage(imageData);
-    setStatus(ExtractionStatus.PROCESSING);
-    setExtractError('');
-
-    setEditInitialData({
-      id: uuidv4(),
-      imageUri: imageData,
-      createdAt: Date.now(),
-    });
-
+    dispatch({ type: 'FRONT_PROCESSING', image: imageData, id: uuidv4(), createdAt: Date.now() });
     navigateTo('EDIT');
 
     try {
@@ -143,26 +196,18 @@ export default function App() {
         if (extracted.rotation && extracted.rotation !== 0) {
           try {
             finalImage = await rotateImage(imageData, extracted.rotation);
-            setTempImage(finalImage);
           } catch (e) {
             console.error('Rotation failed', e);
           }
         }
 
-        setEditInitialData(prev => ({
-          ...prev,
-          ...extracted,
-          imageUri: finalImage,
-        }));
-        setStatus(ExtractionStatus.SUCCESS);
+        dispatch({ type: 'EXTRACT_SUCCESS', data: extracted, image: finalImage });
       } else {
-        setStatus(ExtractionStatus.ERROR);
-        setExtractError('AI解析に失敗しました。手動で入力してください。');
+        dispatch({ type: 'EXTRACT_ERROR', message: 'AI解析に失敗しました。手動で入力してください。' });
       }
     } catch (e: any) {
       console.error(e);
-      setStatus(ExtractionStatus.ERROR);
-      setExtractError(e.message || 'AI解析に失敗しました。手動で入力してください。');
+      dispatch({ type: 'EXTRACT_ERROR', message: e.message || 'AI解析に失敗しました。手動で入力してください。' });
     }
   };
 
@@ -174,9 +219,7 @@ export default function App() {
     }
     navigateTo('LIST');
     setSelectedCard(null);
-    setTempImage(null);
-    setTempImageBack(null);
-    setStatus(ExtractionStatus.IDLE);
+    dispatch({ type: 'RESET' });
   };
 
   const handleCancelEdit = () => {
@@ -185,9 +228,7 @@ export default function App() {
     } else {
         navigateTo('LIST');
     }
-    setTempImage(null);
-    setTempImageBack(null);
-    setStatus(ExtractionStatus.IDLE);
+    dispatch({ type: 'RESET' });
   }
 
   const handleDelete = async (id: string) => {
@@ -205,10 +246,7 @@ export default function App() {
 
   const startEdit = (card: BusinessCard) => {
     setSelectedCard(card);
-    setEditInitialData(card);
-    setTempImage(card.imageUri);
-    setTempImageBack(card.imageUriBack);
-    setStatus(ExtractionStatus.IDLE);
+    dispatch({ type: 'START_EDIT', card });
     navigateTo('EDIT');
   };
 
@@ -225,7 +263,7 @@ export default function App() {
             <CardListView
                 cards={cards}
                 onSelectCard={openDetail}
-                onAddFromFile={(imageData) => { setAddMode('FRONT'); handleCapture(imageData); }}
+                onAddFromFile={(imageData) => handleCapture(imageData, 'FRONT')}
                 onOpenSettings={() => navigateTo('SETTINGS')}
             />
           </PageTransition>
@@ -263,7 +301,7 @@ export default function App() {
                 tempImageBack={tempImageBack}
                 onSave={handleSaveFromEdit}
                 onCancel={handleCancelEdit}
-                onAddBackFromFile={(imageData) => { setAddMode('BACK'); handleCapture(imageData); }}
+                onAddBackFromFile={(imageData) => handleCapture(imageData, 'BACK')}
             />
           </PageTransition>
         )}
