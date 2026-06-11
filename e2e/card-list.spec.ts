@@ -16,7 +16,7 @@ test.describe('カード一覧画面', () => {
   });
 
   test('検索: 名前で絞り込みできる', async ({ page }) => {
-    const searchInput = page.getByPlaceholder('名前・会社名・タグで検索');
+    const searchInput = page.getByPlaceholder('検索');
     await searchInput.fill('山田');
 
     await expect(page.getByText('山田 太郎')).toBeVisible();
@@ -25,12 +25,30 @@ test.describe('カード一覧画面', () => {
   });
 
   test('検索: 会社名で絞り込みできる', async ({ page }) => {
-    const searchInput = page.getByPlaceholder('名前・会社名・タグで検索');
+    const searchInput = page.getByPlaceholder('検索');
     await searchInput.fill('Global');
 
     await expect(page.getByText('John Smith')).toBeVisible();
     await expect(page.getByText('佐藤 花子')).toBeVisible(); // 株式会社グローバルソリューション
     await expect(page.getByText('山田 太郎')).not.toBeVisible();
+  });
+
+  test('検索: メモで絞り込みできる', async ({ page }) => {
+    const searchInput = page.getByPlaceholder('検索');
+    await searchInput.fill('交換'); // card-1 の note「展示会で交換」(タグと被らない語で検索)
+
+    await expect(page.getByText('山田 太郎')).toBeVisible();
+    await expect(page.getByText('佐藤 花子')).not.toBeVisible();
+    await expect(page.getByText('John Smith')).not.toBeVisible();
+  });
+
+  test('検索: メールアドレスで絞り込みできる', async ({ page }) => {
+    const searchInput = page.getByPlaceholder('検索');
+    await searchInput.fill('@globaltech');
+
+    await expect(page.getByText('John Smith')).toBeVisible();
+    await expect(page.getByText('山田 太郎')).not.toBeVisible();
+    await expect(page.getByText('佐藤 花子')).not.toBeVisible();
   });
 
   test('グループ化: 国別にグループ化される', async ({ page }) => {

@@ -94,6 +94,8 @@ export const CardListView: React.FC<CardListViewProps> = ({
         c.company.toLowerCase().includes(cleanQuery) ||
         c.title.toLowerCase().includes(cleanQuery) ||
         (c.country || '').toLowerCase().includes(cleanQuery) ||
+        (c.email || '').toLowerCase().includes(cleanQuery) ||
+        (c.note || '').toLowerCase().includes(cleanQuery) ||
         (c.tags || []).some(t => t.toLowerCase().includes(cleanQuery));
       const matchesTag = !selectedTag || (c.tags || []).includes(selectedTag);
       return matchesSearch && matchesTag;
@@ -173,7 +175,7 @@ export const CardListView: React.FC<CardListViewProps> = ({
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
           <input
             type="text"
-            placeholder="氏名、会社名、タグで検索..."
+            placeholder="氏名、会社名、メモ、タグで検索..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-slate-100 pl-9 pr-4 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-400 focus:bg-white transition-all text-sm placeholder-slate-400"
