@@ -25,8 +25,9 @@ test.describe('カード詳細画面', () => {
   });
 
   test('タグが表示される', async ({ page }) => {
-    await expect(page.getByText('展示会')).toBeVisible();
-    await expect(page.getByText('重要')).toBeVisible();
+    // メモ「展示会で交換」と重複しないよう # 付きのタグ表記で特定する
+    await expect(page.getByText('#展示会')).toBeVisible();
+    await expect(page.getByText('#重要')).toBeVisible();
   });
 
   test('戻るボタンで一覧に戻る', async ({ page }) => {
@@ -93,7 +94,7 @@ test.describe('カード編集画面', () => {
     await page.getByText('保存する').click();
 
     // エラートーストが表示される
-    await expect(page.getByText('氏名または会社名を入力してください')).toBeVisible();
+    await expect(page.getByText('氏名または会社名は必須です。')).toBeVisible();
   });
 
   test('戻るボタンで詳細画面に戻る（変更を保存せず）', async ({ page }) => {
@@ -105,9 +106,6 @@ test.describe('カード編集画面', () => {
   });
 
   test('タグを追加できる', async ({ page }) => {
-    const tagInput = page.getByPlaceholder('タグを追加 (Enterで確定)').or(
-      page.locator('input[placeholder=""]').last()
-    );
     // タグ入力は既存タグがある場合placeholderが空になるので、タグセクション内のinputを探す
     const tagSection = page.locator('text=タグ').locator('..');
     const input = tagSection.locator('input');

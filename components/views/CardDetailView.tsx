@@ -172,13 +172,14 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
   const actionButtons = [
     {
       icon: <PhoneIcon />, label: '電話',
-      action: () => window.open(`tel:${card.phone}`),
+      // tel:/mailto: は window.open だとデスクトップで空ウィンドウが残るため location.href で開く
+      action: () => { window.location.href = `tel:${card.phone}`; },
       disabled: !card.phone,
       bg: 'bg-emerald-100 text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white',
     },
     {
       icon: <MailIcon />, label: 'メール',
-      action: () => window.open(`mailto:${card.email}`),
+      action: () => { window.location.href = `mailto:${card.email}`; },
       disabled: !card.email,
       bg: 'bg-brand-100 text-brand-600 group-hover:bg-brand-500 group-hover:text-white',
     },
@@ -224,6 +225,7 @@ export const CardDetailView: React.FC<CardDetailViewProps> = ({ card, onBack, on
             <ArrowLeftIcon />
           </button>
           <button
+            aria-label="編集"
             onClick={() => onEdit(card)}
             className="text-brand-500 font-bold text-sm bg-brand-50 hover:bg-brand-100 px-4 py-2 rounded-xl transition-colors"
           >

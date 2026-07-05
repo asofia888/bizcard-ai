@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useContext } from 'react';
 import { BusinessCard } from '../types';
-import { saveImage, getAllImages, deleteImage, clearImages } from '../utils/imageDB';
+import { saveImage, getImage, getAllImages, getAllKeys, deleteImage } from '../utils/imageDB';
 import { generateThumbnail } from '../utils/imageUtils';
 import { DialogContext } from '../components/Dialog';
 
@@ -112,7 +112,8 @@ export const useBusinessCards = () => {
   const initializedRef = useRef(false);
 
   // マウント時: 旧フォーマット（localStorage に base64 画像）を IndexedDB へ移行し、
-  // 全画像を IndexedDB から読み込んでカード状態にマージする
+  // サムネイルのみ IndexedDB から読み込んでカード状態にマージする。
+  // フル画像は数MB×枚数分のメモリを食うため、詳細・編集を開いた時に hydrateCard で遅延ロードする。
   useEffect(() => {
     const init = async () => {
       try {
@@ -128,26 +129,33 @@ export const useBusinessCards = () => {
           );
         }
 
-        // IndexedDB から全画像を取得してメタデータにマージ
-        const images = await getAllImages();
-        const cardsWithImages = metadata.map(c => ({
+        // キー一覧だけ先に取り、サムネがあるカードのみ値を読み込む
+        const keys = new Set(await getAllKeys());
+        const thumbs = await Promise.all(
+          metadata.map(c =>
+            keys.has(c.id + THUMB_SUFFIX) ? getImage(c.id + THUMB_SUFFIX) : Promise.resolve(undefined)
+          )
+        );
+        const leanCards = metadata.map((c, i) => ({
           ...c,
-          imageUri:     images[c.id]                ?? null,
-          imageUriBack: images[c.id + BACK_SUFFIX]  ?? null,
-          thumbUri:     images[c.id + THUMB_SUFFIX] ?? null,
+          imageUri: null,
+          imageUriBack: null,
+          thumbUri: thumbs[i] ?? null,
         }));
 
         initializedRef.current = true;
-        setCards(cardsWithImages);
+        setCards(leanCards);
 
-        // バックフィル: imageUri はあるがサムネ未生成のカードに対し、
-        // バックグラウンドでサムネを生成・永続化する。一度通れば次回以降は不要。
-        const needsThumb = cardsWithImages.filter(c => !c.thumbUri && c.imageUri);
+        // バックフィル: フル画像はあるがサムネ未生成のカードに対し、
+        // 1枚ずつフル画像を読み込んでサムネを生成・永続化する（フル画像は state に保持しない）。
+        const needsThumb = metadata.filter(c => keys.has(c.id) && !keys.has(c.id + THUMB_SUFFIX));
         if (needsThumb.length > 0) {
           (async () => {
             for (const card of needsThumb) {
               try {
-                const thumb = await generateThumbnail(card.imageUri as string);
+                const full = await getImage(card.id);
+                if (!full) continue;
+                const thumb = await generateThumbnail(full);
                 await saveImage(card.id + THUMB_SUFFIX, thumb);
                 setCards(prev => prev.map(c => (c.id === card.id ? { ...c, thumbUri: thumb } : c)));
               } catch (e) {
@@ -162,7 +170,24 @@ export const useBusinessCards = () => {
       }
     };
     init();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
+
+  /**
+   * 詳細・編集表示用にフル画像（表面・裏面）を IndexedDB から読み込んで返す。
+   * リスト状態にはサムネしか持たないため、必要になった時点でロードする。
+   */
+  const hydrateCard = async (card: BusinessCard): Promise<BusinessCard> => {
+    try {
+      const [front, back] = await Promise.all([
+        getImage(card.id),
+        getImage(card.id + BACK_SUFFIX),
+      ]);
+      return { ...card, imageUri: front ?? card.imageUri, imageUriBack: back ?? card.imageUriBack };
+    } catch (e) {
+      console.error('Failed to load full images for', card.id, e);
+      return card;
+    }
+  };
 
   // 永続化 & 自動バックアップ
   // IndexedDB ロード完了前は実行しない（initializedRef で制御）
@@ -194,17 +219,24 @@ export const useBusinessCards = () => {
   }, [cards, lastBackupTime]);
 
   // 表面画像が変わったらサムネを再生成し IDB と state に反映する。
-  // 失敗してもアプリは止めない (フル画像へフォールバック表示できる)。
+  // サムネ完成時点でフル画像を state から降ろす（リスト状態はサムネのみ保持する方針）。
+  // 失敗してもアプリは止めない (state に残ったフル画像へフォールバック表示できる)。
   const refreshThumbnail = (id: string, imageUri: string) => {
     generateThumbnail(imageUri)
       .then(thumb => {
-        setCards(prev => prev.map(c => (c.id === id ? { ...c, thumbUri: thumb } : c)));
+        setCards(prev =>
+          prev.map(c =>
+            c.id === id ? { ...c, thumbUri: thumb, imageUri: null, imageUriBack: null } : c
+          )
+        );
         return saveImage(id + THUMB_SUFFIX, thumb);
       })
       .catch(e => console.error('Failed to generate/save thumbnail:', e));
   };
 
   const addCard = (card: BusinessCard) => {
+    // 新規カードはサムネ完成までフル画像を一時的に state に残す（リストのプレースホルダー点滅防止）。
+    // サムネ完成後に refreshThumbnail がフル画像を state から降ろす。
     const seeded: BusinessCard = { ...card, thumbUri: card.thumbUri ?? null };
     if (card.imageUri) {
       saveImage(card.id, card.imageUri).catch(e =>
@@ -235,9 +267,14 @@ export const useBusinessCards = () => {
         console.error('Failed to save back image to IndexedDB:', e)
       );
     }
-    // 既存の thumbUri を維持しつつ更新 (新サムネは refreshThumbnail で後ほど上書き)
+    // 既存の thumbUri を維持しつつ更新 (新サムネは refreshThumbnail で後ほど上書き)。
+    // フル画像は IndexedDB に保存済みなので state には持たない。
     setCards(prev =>
-      prev.map(c => (c.id === updatedCard.id ? { ...updatedCard, thumbUri: c.thumbUri ?? null } : c))
+      prev.map(c =>
+        c.id === updatedCard.id
+          ? { ...updatedCard, imageUri: null, imageUriBack: null, thumbUri: c.thumbUri ?? null }
+          : c
+      )
     );
   };
 
@@ -304,6 +341,8 @@ export const useBusinessCards = () => {
       input.type = 'file';
       input.accept = '.json,application/json';
       input.onchange = () => resolve(input.files?.[0] ?? null);
+      // ダイアログをキャンセルした場合に Promise が未解決のまま残らないようにする
+      input.oncancel = () => resolve(null);
       document.body.appendChild(input);
       input.click();
       document.body.removeChild(input);
@@ -333,10 +372,9 @@ export const useBusinessCards = () => {
       }
       const skipped = rawCards.length - cardsData.length;
 
-      // 検証が通ってから旧画像を全削除（置き換え前のカードの孤児画像を残さない）
-      await clearImages();
-
-      // 画像を IndexedDB に保存（表面・裏面）
+      // 新しい画像を先に保存する（put は同一キーを上書き）。
+      // 旧データの削除は全保存が成功した後に行うため、途中で失敗（容量超過等）しても
+      // 旧メタデータ + 旧画像は無傷のまま残る。
       const imageCards = cardsData.filter(c => c.imageUri);
       if (imageCards.length > 0) {
         await Promise.all(imageCards.map(c => saveImage(c.id, c.imageUri as string)));
@@ -366,19 +404,37 @@ export const useBusinessCards = () => {
           .map(r => saveImage(r.id + THUMB_SUFFIX, r.thumb))
       );
 
+      // 全保存が成功してから、復元データに属さない旧キー（孤児画像）を削除する
+      const validKeys = new Set<string>();
+      for (const c of cardsData) {
+        if (c.imageUri) {
+          validKeys.add(c.id);
+          validKeys.add(c.id + THUMB_SUFFIX);
+        }
+        if (c.imageUriBack) validKeys.add(c.id + BACK_SUFFIX);
+      }
+      const orphanKeys = (await getAllKeys()).filter(k => !validKeys.has(k));
+      if (orphanKeys.length > 0) {
+        await Promise.all(orphanKeys.map(k => deleteImage(k)));
+      }
+
       // メタデータを localStorage に保存
       saveMetadata(cardsData);
 
-      // IndexedDB から全画像をマージ（表面・裏面・サムネ）
-      const images = await getAllImages();
-      const cardsWithImages = cardsData.map(c => ({
+      // state にはサムネのみ反映（フル画像は詳細表示時に遅延ロード）
+      const thumbMap = new Map(
+        thumbResults
+          .filter((r): r is { id: string; thumb: string } => r !== null)
+          .map(r => [r.id, r.thumb])
+      );
+      const leanCards = cardsData.map(c => ({
         ...c,
-        imageUri:     images[c.id]                ?? null,
-        imageUriBack: images[c.id + BACK_SUFFIX]  ?? null,
-        thumbUri:     images[c.id + THUMB_SUFFIX] ?? null,
+        imageUri: null,
+        imageUriBack: null,
+        thumbUri: thumbMap.get(c.id) ?? null,
       }));
 
-      setCards(cardsWithImages);
+      setCards(leanCards);
       showToast(
         skipped > 0
           ? `${cardsData.length}件の名刺を復元しました（壊れていた${skipped}件はスキップ）。`
@@ -397,7 +453,12 @@ export const useBusinessCards = () => {
       return;
     }
 
-    const escapeCSV = (val: string) => `"${(val || '').replace(/"/g, '""')}"`;
+    // 数式インジェクション対策: Excel/Sheets が数式として解釈する先頭文字 (= + - @ タブ CR) には ' を前置する
+    const escapeCSV = (val: string) => {
+      let v = val || '';
+      if (/^[=+\-@\t\r]/.test(v)) v = "'" + v;
+      return `"${v.replace(/"/g, '""')}"`;
+    };
     // ISO 8601 (空白区切り・ローカル時刻)。toLocaleString() は環境依存で Excel のパースが不安定なため使わない
     const formatDateTime = (ts: number) => {
       const d = new Date(ts);
@@ -439,6 +500,7 @@ export const useBusinessCards = () => {
   return {
     cards,
     lastBackupTime,
+    hydrateCard,
     addCard,
     updateCard,
     deleteCard,

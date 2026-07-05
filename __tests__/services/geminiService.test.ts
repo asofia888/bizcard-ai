@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { extractCardData } from '../../services/geminiService';
+import { extractCardData, sanitizeExtractResult } from '../../services/geminiService';
 
 const originalOnLine = Object.getOwnPropertyDescriptor(navigator, 'onLine');
 
@@ -86,10 +86,12 @@ describe('extractCardData', () => {
   });
 
   it('throws offline error when navigator.onLine is false before fetch', async () => {
+    const fetchMock = vi.fn();
+    global.fetch = fetchMock;
     mockOnLine(false);
 
     await expect(extractCardData('base64data')).rejects.toThrow('オフライン');
-    expect(global.fetch).toBeUndefined;
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('throws timeout error when fetch is aborted', async () => {
@@ -109,5 +111,35 @@ describe('extractCardData', () => {
     });
 
     await expect(extractCardData('base64data')).rejects.toThrow('オフライン');
+  });
+
+  it('strips unknown fields from the API response', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ name: '田中', company: 'テスト社', extra: 123 }),
+    });
+
+    const result = await extractCardData('base64data');
+    expect(result).toEqual({ name: '田中', company: 'テスト社' });
+  });
+});
+
+describe('sanitizeExtractResult', () => {
+  it('keeps only known string fields', () => {
+    expect(
+      sanitizeExtractResult({ name: '田中', company: 42, note: 'memo', unknown: 'x' })
+    ).toEqual({ name: '田中', note: 'memo' });
+  });
+
+  it('keeps rotation only when it is a finite number', () => {
+    expect(sanitizeExtractResult({ rotation: 90 })).toEqual({ rotation: 90 });
+    expect(sanitizeExtractResult({ rotation: '90' })).toEqual({});
+    expect(sanitizeExtractResult({ rotation: NaN })).toEqual({});
+  });
+
+  it('returns an empty object for non-object input', () => {
+    expect(sanitizeExtractResult(null)).toEqual({});
+    expect(sanitizeExtractResult('str')).toEqual({});
+    expect(sanitizeExtractResult([1, 2])).toEqual({});
   });
 });

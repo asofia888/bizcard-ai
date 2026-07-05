@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { BusinessCard, ExtractionStatus } from '../../types';
 import { ArrowLeftIcon, CheckIcon, UploadIcon } from '../Icons';
@@ -38,9 +38,14 @@ export const CardEditView: React.FC<CardEditViewProps> = ({
   const isFrontPortrait = frontAspect !== undefined && frontAspect < 1;
   const isBackPortrait  = backAspect  !== undefined && backAspect  < 1;
 
-  useEffect(() => {
+  // AI解析結果が非同期で届いたら（initialData が変わったら）フォームへマージする。
+  // effect 内 setState は再レンダリング連鎖を招くため、レンダー中に前回値と比較して調整する
+  // （React 公式の「前回レンダーの情報を保存する」パターン）。
+  const [lastInitialData, setLastInitialData] = useState(initialData);
+  if (lastInitialData !== initialData) {
+    setLastInitialData(initialData);
     setFormData(prev => ({ ...prev, ...initialData }));
-  }, [initialData]);
+  }
 
   const handleSave = () => {
     if (!formData.name && !formData.company) {

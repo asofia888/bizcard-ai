@@ -1,11 +1,40 @@
 import { compressImageDataUri } from '../utils/imageUtils';
+import type { BusinessCard } from '../types';
 
 const API_TIMEOUT = 30_000; // 30秒
 
 // AI解析APIのアクセストークン（サーバーの APP_ACCESS_TOKEN と一致させる）の保存先
 export const ACCESS_TOKEN_STORAGE_KEY = 'bizcard_access_token';
 
-export const extractCardData = async (base64Image: string): Promise<any> => {
+/** AI解析結果: 名刺のテキストフィールド + 画像を正立させる回転角 */
+export type ExtractedCardData = Partial<
+  Pick<BusinessCard, 'name' | 'title' | 'company' | 'country' | 'email' | 'phone' | 'website' | 'address' | 'note'>
+> & { rotation?: number };
+
+const EXTRACT_STRING_FIELDS = [
+  'name', 'title', 'company', 'country', 'email', 'phone', 'website', 'address', 'note',
+] as const;
+
+/**
+ * サーバー応答を検証し、既知のフィールドを正しい型の場合のみ採用する。
+ * サーバー側で responseSchema を指定しているが、AI応答の揺れや想定外のフィールドが
+ * そのままフォーム state に流れ込まないようクライアント側でも防御する。
+ */
+export function sanitizeExtractResult(raw: unknown): ExtractedCardData {
+  const result: ExtractedCardData = {};
+  if (typeof raw !== 'object' || raw === null) return result;
+  const obj = raw as Record<string, unknown>;
+  for (const key of EXTRACT_STRING_FIELDS) {
+    const v = obj[key];
+    if (typeof v === 'string') result[key] = v;
+  }
+  if (typeof obj.rotation === 'number' && Number.isFinite(obj.rotation)) {
+    result.rotation = obj.rotation;
+  }
+  return result;
+}
+
+export const extractCardData = async (base64Image: string): Promise<ExtractedCardData> => {
   if (!navigator.onLine) {
     throw new Error('オフラインです。ネットワーク接続を確認してください。');
   }
@@ -41,13 +70,13 @@ export const extractCardData = async (base64Image: string): Promise<any> => {
       throw new Error(`通信エラー（${response.status}）。もう一度お試しください。`);
     }
 
-    return response.json();
+    return sanitizeExtractResult(await response.json());
   } catch (e: any) {
     if (e.name === 'AbortError') {
-      throw new Error('AI解析がタイムアウトしました。もう一度お試しください。');
+      throw new Error('AI解析がタイムアウトしました。もう一度お試しください。', { cause: e });
     }
     if (!navigator.onLine) {
-      throw new Error('オフラインです。ネットワーク接続を確認してください。');
+      throw new Error('オフラインです。ネットワーク接続を確認してください。', { cause: e });
     }
     throw e;
   } finally {

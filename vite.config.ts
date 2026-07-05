@@ -50,10 +50,12 @@ export default defineConfig({
       workbox: {
         // キャッシュ対象：アプリシェル（JS / CSS / HTML / SVG / 画像）
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
-        // API コールはキャッシュしない（常にネットワークから取得）
+        // API コールはキャッシュしない（常にネットワークから取得）。
+        // RegExp は完全URL (https://...) に対して照合されるため /^\/api\// では一致しない。
+        // pathname で判定する関数形式を使う。
         runtimeCaching: [
           {
-            urlPattern: /^\/api\//,
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
             handler: 'NetworkOnly',
           },
         ],

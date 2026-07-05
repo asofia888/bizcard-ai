@@ -29,7 +29,8 @@ test.describe('カード一覧画面', () => {
     await searchInput.fill('Global');
 
     await expect(page.getByText('John Smith')).toBeVisible();
-    await expect(page.getByText('佐藤 花子')).toBeVisible(); // 株式会社グローバルソリューション
+    // 「グローバルソリューション」はカタカナのため 'Global' にはマッチしない
+    await expect(page.getByText('佐藤 花子')).not.toBeVisible();
     await expect(page.getByText('山田 太郎')).not.toBeVisible();
   });
 
@@ -54,19 +55,21 @@ test.describe('カード一覧画面', () => {
   test('グループ化: 国別にグループ化される', async ({ page }) => {
     await page.getByRole('button', { name: '国別' }).click();
 
-    await expect(page.getByText('日本')).toBeVisible();
-    await expect(page.getByText('アメリカ')).toBeVisible();
+    // カード内の国チップと重複するため、グループ見出し (h3) で特定する
+    await expect(page.getByRole('heading', { name: '日本' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'アメリカ' })).toBeVisible();
   });
 
   test('グループ化: 会社別にグループ化される', async ({ page }) => {
     await page.getByRole('button', { name: '会社別' }).click();
 
-    await expect(page.getByText('株式会社テックイノベーション')).toBeVisible();
-    await expect(page.getByText('Global Tech Inc.')).toBeVisible();
+    // カード内の会社名と重複するため、グループ見出し (h3) で特定する
+    await expect(page.getByRole('heading', { name: '株式会社テックイノベーション' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Global Tech Inc.' })).toBeVisible();
   });
 
   test('ソート: 氏名順に並び替えできる', async ({ page }) => {
-    await page.getByRole('combobox').selectOption('name');
+    await page.getByRole('combobox').selectOption('NAME_ASC');
 
     const cards = page.locator('[class*="rounded-2xl"]').filter({ hasText: /太郎|花子|John/ });
     const firstCard = cards.first();

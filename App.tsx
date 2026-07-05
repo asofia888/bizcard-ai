@@ -1,4 +1,4 @@
-import React, { useState, useRef, useReducer } from 'react';
+import React, { useState, useReducer } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 import { extractCardData } from './services/geminiService';
@@ -104,33 +104,34 @@ function captureReducer(state: CaptureState, action: CaptureAction): CaptureStat
 }
 
 export default function App() {
-  const { 
-    cards, 
-    lastBackupTime, 
-    addCard, 
-    updateCard, 
-    deleteCard, 
-    createBackup, 
+  const {
+    cards,
+    lastBackupTime,
+    hydrateCard,
+    addCard,
+    updateCard,
+    deleteCard,
+    createBackup,
     restoreBackup,
     exportCSV
   } = useBusinessCards();
 
   const [view, setView] = useState<ViewState>('LIST');
-  const prevViewRef = useRef<ViewState>('LIST');
+  // 遷移方向: 深さが増える→forward、減る→back、同じ→fade
+  const [direction, setDirection] = useState<'forward' | 'back' | 'fade'>('fade');
 
-  // view 変更をラップして方向を自動追跡
+  // view 変更をラップして方向を自動追跡（レンダー中の ref 参照を避けるため state で持つ）
   const navigateTo = (next: ViewState) => {
-    prevViewRef.current = view;
+    setDirection(
+      VIEW_DEPTH[next] > VIEW_DEPTH[view]
+        ? 'forward'
+        : VIEW_DEPTH[next] < VIEW_DEPTH[view]
+          ? 'back'
+          : 'fade'
+    );
     setView(next);
   };
 
-  // 遷移方向: 深さが増える→forward、減る→back、同じ→fade
-  const direction =
-    VIEW_DEPTH[view] > VIEW_DEPTH[prevViewRef.current]
-      ? 'forward' as const
-      : VIEW_DEPTH[view] < VIEW_DEPTH[prevViewRef.current]
-        ? 'back' as const
-        : 'fade' as const;
   const [selectedCard, setSelectedCard] = useState<BusinessCard | null>(null);
   const [capture, dispatch] = useReducer(captureReducer, initialCaptureState);
   const { addMode, adjustImage, tempImage, tempImageBack, status, extractError, editInitialData } = capture;
@@ -239,8 +240,9 @@ export default function App() {
       }
   };
 
-  const openDetail = (card: BusinessCard) => {
-    setSelectedCard(card);
+  // リスト状態はサムネのみ保持しているため、詳細を開く時にフル画像を遅延ロードする
+  const openDetail = async (card: BusinessCard) => {
+    setSelectedCard(await hydrateCard(card));
     navigateTo('DETAIL');
   };
 

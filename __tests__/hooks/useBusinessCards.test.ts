@@ -245,6 +245,42 @@ describe('useBusinessCards', () => {
     expect(csvContent).toContain('"メモ with ""quotes"""');
   });
 
+  it('prefixes formula-leading fields with a quote (formula injection prevention)', () => {
+    const evilCard = makeCard({
+      id: 'formula-test',
+      name: '=HYPERLINK("http://evil.example","click")',
+      company: '+81-3-1234-5678',
+      note: '@evil',
+      title: '-cmd',
+    });
+    localStorage.setItem('bizcard_data', JSON.stringify([evilCard]));
+
+    let csvContent = '';
+    const OrigBlob = globalThis.Blob;
+    globalThis.Blob = class MockBlob extends OrigBlob {
+      constructor(parts: any[], options?: any) {
+        super(parts, options);
+        if (parts.length > 1 && typeof parts[1] === 'string') {
+          csvContent = parts[1];
+        }
+      }
+    } as any;
+
+    const { result } = renderHook(() => useBusinessCards());
+    act(() => {
+      result.current.exportCSV();
+    });
+
+    globalThis.Blob = OrigBlob;
+
+    expect(csvContent).toContain(`"'=HYPERLINK(""http://evil.example"",""click"")"`);
+    expect(csvContent).toContain(`"'+81-3-1234-5678"`);
+    expect(csvContent).toContain(`"'@evil"`);
+    expect(csvContent).toContain(`"'-cmd"`);
+    // 先頭が安全な通常フィールドには ' が付かない
+    expect(csvContent).toContain('"日本"');
+  });
+
   it('shows alert only when exporting CSV with 0 cards', () => {
     localStorage.setItem('bizcard_data', JSON.stringify([]));
     const { result } = renderHook(() => useBusinessCards());

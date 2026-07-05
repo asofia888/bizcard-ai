@@ -34,6 +34,28 @@ export async function saveImage(cardId: string, imageData: string): Promise<void
   });
 }
 
+/** 単一キーの画像を取得する。詳細・編集表示時のフル画像の遅延ロードに使う */
+export async function getImage(key: string): Promise<string | undefined> {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const request = tx.objectStore(STORE_NAME).get(key);
+    request.onsuccess = () => resolve(request.result as string | undefined);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/** 保存済みの全キーを返す（画像データ本体は読み込まない） */
+export async function getAllKeys(): Promise<string[]> {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const request = tx.objectStore(STORE_NAME).getAllKeys();
+    request.onsuccess = () => resolve(request.result as string[]);
+    request.onerror = () => reject(request.error);
+  });
+}
+
 export async function getAllImages(): Promise<Record<string, string>> {
   const db = await getDB();
   return new Promise((resolve, reject) => {
@@ -51,17 +73,6 @@ export async function getAllImages(): Promise<Record<string, string>> {
       }
     };
     request.onerror = () => reject(request.error);
-  });
-}
-
-/** 全画像を削除する。バックアップ復元時に旧データの孤児画像を残さないために使う */
-export async function clearImages(): Promise<void> {
-  const db = await getDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).clear();
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
   });
 }
 

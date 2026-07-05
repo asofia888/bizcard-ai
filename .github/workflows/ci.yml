@@ -22,8 +22,35 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      - name: Lint
+        run: npm run lint
+
       - name: Run unit tests
         run: npm test
 
       - name: Build
         run: npm run build
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      # dev サーバー (tsx --env-file=.env.local) の起動に必要なダミー環境変数。
+      # E2E は AI 解析 API を呼ばないため値は使われない。
+      - name: Create dummy env file
+        run: printf 'GEMINI_API_KEY=dummy\nAPP_ACCESS_TOKEN=dummy\n' > .env.local
+
+      - name: Run E2E tests
+        run: npm run test:e2e

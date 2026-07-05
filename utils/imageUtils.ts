@@ -25,9 +25,14 @@ import { useEffect, useState } from 'react';
 // 名刺プレビューの縦横自動切り替えに使う。
 export function useImageAspect(src: string | null | undefined): number | undefined {
   const [aspect, setAspect] = useState<number | undefined>(undefined);
-  useEffect(() => {
-    // src が切り替わったら前の画像の aspect を引き継がない
+  // src が切り替わったら前の画像の aspect を引き継がない。
+  // effect 内 setState を避け、レンダー中に前回値と比較して調整する
+  const [prevSrc, setPrevSrc] = useState(src);
+  if (prevSrc !== src) {
+    setPrevSrc(src);
     setAspect(undefined);
+  }
+  useEffect(() => {
     if (!src) return;
     let cancelled = false;
     const img = new Image();

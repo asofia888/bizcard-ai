@@ -11,9 +11,9 @@ test.describe('設定画面', () => {
   });
 
   test('統計情報が表示される', async ({ page }) => {
-    // カード枚数が表示される
-    await expect(page.getByText('3')).toBeVisible();
-    await expect(page.getByText('枚')).toBeVisible();
+    // カード枚数が表示される (日付等に含まれる「3」と衝突しないよう統計数字の要素で特定)
+    await expect(page.getByText('登録済み名刺')).toBeVisible();
+    await expect(page.locator('.text-4xl')).toHaveText('3');
   });
 
   test('CSVエクスポートでファイルがダウンロードされる', async ({ page }) => {
@@ -55,9 +55,15 @@ test.describe('設定画面', () => {
       ],
     });
 
-    // ファイルアップロードをシミュレート
-    const fileChooserPromise = page.waitForEvent('filechooser');
+    // アプリの実際のフロー: 確認ダイアログ → ファイル選択 の順
     await page.getByText('バックアップから復元').click();
+    await expect(
+      page.getByText('現在のデータを上書きしてバックアップから復元しますか？')
+    ).toBeVisible();
+
+    // 復元ボタンをクリックするとファイル選択ダイアログが開く
+    const fileChooserPromise = page.waitForEvent('filechooser');
+    await page.getByRole('button', { name: '復元する' }).click();
     const fileChooser = await fileChooserPromise;
 
     // テンポラリファイルをバッファとしてセット
@@ -66,13 +72,6 @@ test.describe('設定画面', () => {
       mimeType: 'application/json',
       buffer: Buffer.from(backupData),
     });
-
-    // 確認ダイアログ
-    const confirmDialog = page.getByText('現在のデータをすべて上書きして復元しますか？');
-    await expect(confirmDialog).toBeVisible();
-
-    // 復元ボタンをクリック（ダイアログ内のボタン）
-    await page.getByRole('button', { name: '復元する' }).click();
 
     // 成功トースト
     await expect(page.getByText('1件の名刺を復元しました。')).toBeVisible();
