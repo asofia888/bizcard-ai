@@ -1,12 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { resetAppState, seedCards } from './helpers';
+import { seedCards } from './helpers';
 
 test.describe('カード詳細画面', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await resetAppState(page);
     await seedCards(page);
-    await page.reload();
+    await page.goto('/');
     // カード一覧から山田太郎を選択
     await page.getByText('山田 太郎').click();
   });
@@ -57,10 +55,8 @@ test.describe('カード詳細画面', () => {
 
 test.describe('カード編集画面', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await resetAppState(page);
     await seedCards(page);
-    await page.reload();
+    await page.goto('/');
     // 詳細画面→編集画面
     await page.getByText('山田 太郎').click();
     await page.getByLabel('編集').click();

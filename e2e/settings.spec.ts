@@ -1,12 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { resetAppState, seedCards } from './helpers';
+import { seedCards } from './helpers';
 
 test.describe('設定画面', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await resetAppState(page);
     await seedCards(page);
-    await page.reload();
+    await page.goto('/');
     await page.getByLabel('設定').click();
   });
 

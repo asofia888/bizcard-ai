@@ -103,7 +103,20 @@ function captureReducer(state: CaptureState, action: CaptureAction): CaptureStat
   }
 }
 
+// useBusinessCards は DialogProvider の内側で呼ぶ必要がある。
+// Provider の外だと DialogContext が取れず、確認ダイアログ・トーストが
+// window.confirm / alert へフォールバックしてしまう。
 export default function App() {
+  return (
+    <ErrorBoundary>
+      <DialogProvider>
+        <AppContent />
+      </DialogProvider>
+    </ErrorBoundary>
+  );
+}
+
+function AppContent() {
   const {
     cards,
     lastBackupTime,
@@ -255,8 +268,6 @@ export default function App() {
   // --- Render ---
 
   return (
-    <ErrorBoundary>
-    <DialogProvider>
     <div className="h-dvh bg-slate-50 flex flex-col font-sans max-w-md mx-auto shadow-2xl overflow-hidden relative">
 
       <AnimatePresence mode="wait" initial={false}>
@@ -323,7 +334,5 @@ export default function App() {
       </AnimatePresence>
 
     </div>
-    </DialogProvider>
-    </ErrorBoundary>
   );
 }

@@ -1,15 +1,18 @@
 import { Page } from '@playwright/test';
 
-/** Clear localStorage & IndexedDB so each test starts fresh with the default sample card. */
-export async function resetAppState(page: Page) {
-  await page.evaluate(() => {
-    localStorage.clear();
-    // Clear IndexedDB
-    indexedDB.deleteDatabase('bizcard-ai-images');
-  });
-}
-
-/** Seed localStorage with multiple cards for testing filtering/sorting. */
+/**
+ * アプリ起動前に localStorage へ名刺データをシードする。
+ *
+ * addInitScript はページのスクリプト実行前に走るため、起動済みアプリの
+ * 自動保存 (初期化完了時の saveMetadata) とレースしない。
+ * 以前の「goto → localStorage 書き込み → reload」方式は、旧ページのアプリが
+ * シード後に初期サンプルカードで上書きする競合があり CI で不安定だった。
+ *
+ * Playwright はテストごとに新しいブラウザコンテキストを作るため、
+ * localStorage / IndexedDB の明示的なクリアは不要。
+ *
+ * 呼び出し側は `await seedCards(page)` の後に `await page.goto('/')` すること。
+ */
 export async function seedCards(page: Page) {
   const cards = [
     {
@@ -62,7 +65,7 @@ export async function seedCards(page: Page) {
     },
   ];
 
-  await page.evaluate((data) => {
+  await page.addInitScript((data) => {
     localStorage.setItem('bizcard_data', JSON.stringify(data));
   }, cards);
 }
